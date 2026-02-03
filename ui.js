@@ -1,4 +1,6 @@
 
+let leaderboardLoadRequested = false;
+
 function drawBackgroundGradient() {
   const [c1, c2] = currentTheme.backgroundGradient;
   const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -368,7 +370,7 @@ function drawMainMenu(time) {
 }
 
 // Leaderboard screen uses the centralized loadLeaderboard function
-async function drawLeaderboardScreen(time) {
+function drawLeaderboardScreen(time) {
   drawBackgroundGradient();
 
   ctx.save();
@@ -383,11 +385,29 @@ async function drawLeaderboardScreen(time) {
   ctx.shadowBlur = 0;
   ctx.font = "20px Arial";
   ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.fillText("Loading...", canvas.width / 2, 180);
+  if (!leaderboardLoaded) {
+    ctx.fillText("Loading...", canvas.width / 2, 180);
+  }
 
   ctx.restore();
 
-  const entries = await window.loadLeaderboard();
+  if (!leaderboardLoaded) {
+    if (!leaderboardLoadRequested && typeof loadLeaderboard === "function") {
+      leaderboardLoadRequested = true;
+      loadLeaderboard().then(data => {
+        leaderboardData = data;
+        leaderboardLoaded = true;
+        leaderboardLoadRequested = false;
+      }).catch(() => {
+        leaderboardLoaded = true;
+        leaderboardData = [];
+        leaderboardLoadRequested = false;
+      });
+    }
+    return;
+  }
+
+  const entries = Array.isArray(leaderboardData) ? leaderboardData : [];
 
   ctx.save();
   ctx.textAlign = "left";
@@ -405,12 +425,17 @@ async function drawLeaderboardScreen(time) {
   ctx.font = "18px Arial";
   y += 40;
 
-  entries.slice(0, 15).forEach((e) => {
-    ctx.fillText(e.name || "Player", startX, y);
-    ctx.fillText(e.score || 0, startX + 260, y);
-    ctx.fillText(e.country || "N/A", startX + 420, y);
-    y += 32;
-  });
+  if (entries.length === 0) {
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.fillText("No scores yet. Play a game to set a record!", startX, y);
+  } else {
+    entries.slice(0, 15).forEach((e) => {
+      ctx.fillText(e.name || "Player", startX, y);
+      ctx.fillText(e.score || 0, startX + 260, y);
+      ctx.fillText(e.country || "N/A", startX + 420, y);
+      y += 32;
+    });
+  }
 
   ctx.restore();
 
