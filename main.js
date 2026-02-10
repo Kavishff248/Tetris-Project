@@ -400,17 +400,6 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       const finalName = tempName.trim() || "Player";
       if (window.submitScore) window.submitScore(finalName, pendingScore, playerCountry);
-      leaderboardLoaded = false;
-      leaderboardData = null;
-      if (typeof loadLeaderboard === "function") {
-        loadLeaderboard().then(data => {
-          leaderboardData = data;
-          leaderboardLoaded = true;
-        }).catch(() => {
-          leaderboardData = [];
-          leaderboardLoaded = true;
-        });
-      }
       gameState = "leaderboard";
       return;
     }
