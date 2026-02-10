@@ -72,4 +72,3 @@ window.fxAddOverlay = fxAddOverlay;
 window.fxAddDistortion = fxAddDistortion;
 window.fxUpdateAndDraw = fxUpdateAndDraw;
 window.fxClearOverlays = fxClearOverlays;
-
