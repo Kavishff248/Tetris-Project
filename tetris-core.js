@@ -859,7 +859,7 @@ function handleMainMenuSelection() {
     leaderboardLoaded = false;
     leaderboardData = null;
 
-    loadLeaderboard().then(data => {
+    window.loadLeaderboard().then(data => {
       leaderboardData = data;
       leaderboardLoaded = true;
     });
