@@ -81,6 +81,63 @@ function applySpeedPreset() {
   ARR = preset.arr;
   SOFT_DROP_DELAY = preset.softDrop;
   LOCK_DELAY = preset.lock;
+
+  // Propagate preset changes to any existing player states so they're applied immediately
+  try {
+    if (solo) {
+      solo.das = DAS;
+      solo.arr = ARR;
+      solo.gravityDelay = GRAVITY_DELAY;
+    }
+    if (player) {
+      player.das = DAS;
+      player.arr = ARR;
+      player.gravityDelay = GRAVITY_DELAY;
+    }
+    if (bot) {
+      bot.das = DAS;
+      bot.arr = ARR;
+      bot.gravityDelay = GRAVITY_DELAY;
+    }
+  } catch (e) {
+    // ignore if players not initialized yet
+  }
+}
+
+// Optional custom per-user DAS/ARR that override defaults when set (null = unused)
+let CUSTOM_DAS = null; // in ms
+let CUSTOM_ARR = null; // in ms
+
+// Apply custom DAS/ARR to player states (does not change global preset values)
+function setCustomPlayerSpeeds(dasMs, arrMs) {
+  CUSTOM_DAS = (typeof dasMs === 'number') ? dasMs : CUSTOM_DAS;
+  CUSTOM_ARR = (typeof arrMs === 'number') ? arrMs : CUSTOM_ARR;
+  const dasVal = CUSTOM_DAS !== null ? CUSTOM_DAS : DAS;
+  const arrVal = CUSTOM_ARR !== null ? CUSTOM_ARR : ARR;
+  if (solo) { solo.das = dasVal; solo.arr = arrVal; }
+  if (player) { player.das = dasVal; player.arr = arrVal; }
+  if (bot) { bot.das = dasVal; bot.arr = arrVal; }
+  // mirror to window so UI can read the current values
+  window.CUSTOM_DAS = CUSTOM_DAS;
+  window.CUSTOM_ARR = CUSTOM_ARR;
+}
+window.setCustomPlayerSpeeds = setCustomPlayerSpeeds;
+
+// expose current custom values on window for UI to read
+window.CUSTOM_DAS = CUSTOM_DAS;
+window.CUSTOM_ARR = CUSTOM_ARR;
+
+// Recalculate per-player speeds based on level (called when level/time changes)
+function recalcPlayerSpeeds(pState) {
+  if (!pState) return;
+  // Gravity speeds up with level; clamp to a minimum so it doesn't become instant
+  const baseGravity = GRAVITY_DELAY;
+  const levelFactor = Math.pow(0.92, Math.max(0, pState.level - 1));
+  pState.gravityDelay = Math.max(50, Math.round(baseGravity * levelFactor));
+
+  // Slightly reduce DAS/ARR as level increases for faster responsiveness
+  pState.das = Math.max(30, Math.round(DAS * Math.pow(0.96, Math.max(0, pState.level - 1))));
+  pState.arr = Math.max(6, Math.round(ARR * Math.pow(0.95, Math.max(0, pState.level - 1))));
 }
 
 // Bot difficulty defaults
@@ -350,6 +407,10 @@ function createPlayerState() {
     dasDir: 0,
     dasTime: 0,
     arrTime: 0,
+    // per-player timing overrides (allow personalized ARR/DAS/gravity)
+    arr: ARR,
+    das: DAS,
+    gravityDelay: GRAVITY_DELAY,
     score: 0,
     lines: 0,
     level: 1,
@@ -622,7 +683,9 @@ function scoreAfterLock(pState, { linesCleared, tSpin }) {
 
   if (linesCleared > 0) {
     pState.lines += linesCleared;
+    const oldLevel = pState.level || 1;
     pState.level = 1 + Math.floor(pState.lines / 10);
+    if (pState.level !== oldLevel) recalcPlayerSpeeds(pState);
   }
 
   pState.score += add;
@@ -842,10 +905,14 @@ function describeKeyEvent(e) {
 
 function actionFromKeyEvent(e) {
   const keyDesc = describeKeyEvent(e);
+  // Accept either exact combo match (e.g. Ctrl+z) OR base key match (ArrowRight)
+  const parts = keyDesc.split("+");
+  const base = parts[parts.length - 1];
   for (const action of ACTIONS) {
-    if (controlsConfig[action].toLowerCase() === keyDesc.toLowerCase()) {
-      return action;
-    }
+    const cfg = (controlsConfig[action] || "").toLowerCase();
+    if (!cfg) continue;
+    if (cfg === keyDesc.toLowerCase()) return action;
+    if (cfg === base.toLowerCase()) return action;
   }
   return null;
 }
@@ -883,7 +950,16 @@ function updatePlayer(pState, now) {
     applyGarbage(pState);
   }
 
-  const fallDelay = GRAVITY_DELAY;
+  // Level can increase over time as well as by lines: every 60s = +1 level
+  const timeLevels = pState.startTime ? Math.floor((now - pState.startTime) / 60000) : 0;
+  const linesBasedLevel = 1 + Math.floor(pState.lines / 10);
+  const newLevel = linesBasedLevel + timeLevels;
+  if (newLevel !== pState.level) {
+    pState.level = newLevel;
+    recalcPlayerSpeeds(pState);
+  }
+
+  const fallDelay = pState.gravityDelay || GRAVITY_DELAY;
 
   if (now - pState.lastDropTime >= (pState.softDropping ? SOFT_DROP_DELAY : fallDelay)) {
     if (canPlace(pState, pState.pieceX, pState.pieceY + 1, pState.rotation)) {
@@ -905,6 +981,9 @@ function updatePlayer(pState, now) {
 function handleHorizontalMovement(pState, now) {
   if (!pState.dasDir) return;
 
+  const localDAS = (typeof pState.das === 'number') ? pState.das : DAS;
+  const localARR = (typeof pState.arr === 'number') ? pState.arr : ARR;
+
   if (!pState.dasTime) {
     pState.dasTime = now;
     moveHoriz(pState, pState.dasDir);
@@ -912,9 +991,9 @@ function handleHorizontalMovement(pState, now) {
     return;
   }
 
-  if (now - pState.dasTime < DAS) return;
+  if (now - pState.dasTime < localDAS) return;
 
-  if (now - pState.arrTime >= ARR) {
+  if (now - pState.arrTime >= localARR) {
     if (moveHoriz(pState, pState.dasDir)) {
       pState.arrTime = now;
     }

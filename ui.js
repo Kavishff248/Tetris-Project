@@ -387,7 +387,7 @@ async function drawLeaderboardScreen(time) {
 
   ctx.restore();
 
-  const entries = await window.loadLeaderboard();
+ const entries = leaderboardData || [];
 
   ctx.save();
   ctx.textAlign = "left";
@@ -438,6 +438,8 @@ function drawOptions(time) {
   const rows = [
     `Theme: ${THEMES[currentThemeKey].name}`,
     `Move Speed: ${SPEED_PRESETS[speedPresetIndex].name}`,
+    `Custom DAS: ${window.CUSTOM_DAS !== null && window.CUSTOM_DAS !== undefined ? window.CUSTOM_DAS + ' ms' : 'Off'}`,
+    `Custom ARR: ${window.CUSTOM_ARR !== null && window.CUSTOM_ARR !== undefined ? window.CUSTOM_ARR + ' ms' : 'Off'}`,
     `Volume: ${(masterVolume * 100) | 0}%`,
     `FPS Display: ${showFPS ? "On" : "Off"}`,
     `Background Glow: ${backgroundGlowEnabled ? "On" : "Off"}`
@@ -471,6 +473,9 @@ function drawOptions(time) {
       ctx.stroke();
     }
   });
+
+  // expose option count so main.js can use it for navigation
+  window.getOptionsCount = () => rows.length;
 
   ctx.font = "16px Arial";
   ctx.fillStyle = currentTheme.hudTextColor;

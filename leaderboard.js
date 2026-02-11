@@ -1,84 +1,122 @@
+console.log("leaderboard.js LOADED");
 
+/* ============================================================
+   LOCAL OFFLINE QUEUE (GLOBAL)
+   ============================================================ */
 
-// Submit a score to global Firebase leaderboard
+window.localQueue = JSON.parse(localStorage.getItem("offlineScores") || "[]");
+
+window.saveQueue = function saveQueue() {
+  localStorage.setItem("offlineScores", JSON.stringify(window.localQueue));
+};
+
+window.queueLocalScore = function queueLocalScore(entry) {
+  window.localQueue.push(entry);
+  window.saveQueue();
+};
+
+/* ============================================================
+   FLUSH QUEUE TO SUPABASE (GLOBAL)
+   ============================================================ */
+
+window.flushLocalQueue = async function flushLocalQueue() {
+  if (!window.supabase || window.localQueue.length === 0) return;
+
+  const pending = [...window.localQueue];
+  window.localQueue = [];
+  window.saveQueue();
+
+  for (const entry of pending) {
+    try {
+      const { error } = await window.supabase
+        .from("scores")
+        .insert([entry]);
+
+      if (error) {
+        console.error("Failed to flush queued score:", error);
+        window.queueLocalScore(entry);
+      }
+    } catch (err) {
+      console.error("Error flushing queued score:", err);
+      window.queueLocalScore(entry);
+    }
+  }
+};
+
+/* ============================================================
+   LOAD LEADERBOARD (GLOBAL)
+   ============================================================ */
+
+window.loadLeaderboard = async function loadLeaderboard() {
+  try {
+    if (!window.supabase) {
+      console.error("Supabase not initialized");
+      return [];
+    }
+
+    // Flush offline scores first
+    await window.flushLocalQueue();
+
+    const { data, error } = await window.supabase
+      .from("scores")
+      .select("*")
+      .order("score", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error("Leaderboard fetch failed:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("Error loading leaderboard:", err);
+    return [];
+  }
+};
+
+/* ============================================================
+   SUBMIT SCORE (GLOBAL)
+   ============================================================ */
+
 window.submitScore = async function submitScore(name, score, country) {
   try {
-    // Don't add zero scores to leaderboard
     if (score === 0) {
       console.log("Score is zero, not adding to leaderboard");
       return;
     }
 
-    // Wait for Firebase to be initialized
-    let maxWait = 5000;
-    let elapsed = 0;
-    while (!window.db && elapsed < maxWait) {
-      await new Promise(r => setTimeout(r, 100));
-      elapsed += 100;
-    }
+    const entry = {
+      name,
+      score,
+      country,
+      timestamp: Date.now()
+    };
 
-    if (!window.db) {
-      console.error("Firebase not initialized");
+    if (!window.supabase) {
+      console.error("Supabase not initialized — queueing locally");
+      window.queueLocalScore(entry);
       return;
     }
 
-    // Add score to Firestore
-    const { addDoc } = await import("https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js");
-    const scoresCollection = window.collection(window.db, "scores");
-    
-    await addDoc(scoresCollection, {
-      name: name,
-      score: score,
-      country: country,
-      timestamp: Date.now()
-    });
+    const { error } = await window.supabase
+      .from("scores")
+      .insert([entry]);
 
-    console.log("Score submitted to Firebase:", { name, score, country });
+    if (error) {
+      console.error("Supabase insert failed, queueing locally:", error);
+      window.queueLocalScore(entry);
+    } else {
+      console.log("Score submitted to Supabase:", entry);
+      await window.loadLeaderboard();
+    }
   } catch (err) {
     console.error("Error submitting score:", err);
-  }
-};
-
-// Load leaderboard from global Firebase database
-window.loadLeaderboard = async function loadLeaderboard(limitCount = 50) {
-  try {
-    // Wait for Firebase to be initialized
-    let maxWait = 5000;
-    let elapsed = 0;
-    while (!window.db && elapsed < maxWait) {
-      await new Promise(r => setTimeout(r, 100));
-      elapsed += 100;
-    }
-
-    if (!window.db) {
-      console.error("Firebase not initialized");
-      return [];
-    }
-
-    const { query, orderBy, limit, getDocs } = await import("https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js");
-    
-    const scoresCollection = window.collection(window.db, "scores");
-    const q = query(
-      scoresCollection,
-      orderBy("score", "desc"),
-      limit(limitCount)
-    );
-
-    const querySnapshot = await getDocs(q);
-    const leaderboard = [];
-
-    querySnapshot.forEach((doc) => {
-      leaderboard.push({
-        name: doc.data().name,
-        score: doc.data().score,
-        country: doc.data().country,
-        timestamp: doc.data().timestamp
-      });
+    window.queueLocalScore({
+      name,
+      score,
+      country,
+      timestamp: Date.now()
     });
-
-    return leaderboard;
-  } catch (err) {
-    console.error("Leaderboard load error:", err);
-    return [];
   }
 };

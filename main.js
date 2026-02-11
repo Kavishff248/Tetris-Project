@@ -1,3 +1,6 @@
+window.addEventListener("DOMContentLoaded", () => {
+  console.log("Main.js ready — Supabase leaderboard active");
+});
 
 if (window.setupThemeOverlays) window.setupThemeOverlays();
 
@@ -359,7 +362,7 @@ document.addEventListener("keydown", (e) => {
   }
 
   if (gameState === "options") {
-    const optionsCount = 5;
+    const optionsCount = window.getOptionsCount ? window.getOptionsCount() : 5;
     if (e.key === "ArrowUp") {
       optionsSelection = (optionsSelection + optionsCount - 1) % optionsCount;
     } else if (e.key === "ArrowDown") {
@@ -457,11 +460,6 @@ document.addEventListener("keydown", (e) => {
   if (gameState !== "playing") return;
   pState = (gameMode === "solo") ? solo : player;
 
-  if (e.key === "Shift") {
-    holdPiece(pState);
-    return;
-  }
-
   if (e.key === "ArrowUp") {
     rotate(pState, 1);
     return;
@@ -543,10 +541,24 @@ function handleOptionChange(dir) {
     speedPresetIndex = (speedPresetIndex + dir + SPEED_PRESETS.length) % SPEED_PRESETS.length;
     applySpeedPreset();
   } else if (optionsSelection === 2) {
-    masterVolume = Math.min(1, Math.max(0, masterVolume + dir * 0.1));
+    // Custom DAS (ms) - step 10ms, 0 -> Off (null)
+    let cur = window.CUSTOM_DAS;
+    if (cur === null || cur === undefined) cur = DAS;
+    cur = Math.max(0, cur + dir * 10);
+    if (cur === 0) cur = null;
+    window.setCustomPlayerSpeeds(cur, window.CUSTOM_ARR);
   } else if (optionsSelection === 3) {
-    showFPS = !showFPS;
+    // Custom ARR (ms) - step 5ms, 0 -> Off (null)
+    let cur = window.CUSTOM_ARR;
+    if (cur === null || cur === undefined) cur = ARR;
+    cur = Math.max(0, cur + dir * 5);
+    if (cur === 0) cur = null;
+    window.setCustomPlayerSpeeds(window.CUSTOM_DAS, cur);
   } else if (optionsSelection === 4) {
+    masterVolume = Math.min(1, Math.max(0, masterVolume + dir * 0.1));
+  } else if (optionsSelection === 5) {
+    showFPS = !showFPS;
+  } else if (optionsSelection === 6) {
     backgroundGlowEnabled = !backgroundGlowEnabled;
   }
 }
