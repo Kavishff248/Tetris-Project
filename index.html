@@ -10,21 +10,21 @@
     <canvas id="game" width="1400" height="800"></canvas>
   </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+  <!-- Correct Supabase v2 UMD build -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
 
+  <!-- Your init file -->
+  <script src="supabase-init.js"></script>
 
-<script src="supabase-init.js"></script>
+  <!-- Leaderboard -->
+  <script src="leaderboard.js"></script>
 
-<!-- Leaderboard second -->
-<script src="leaderboard.js"></script>
-
-<!-- Game systems -->
-<script src="fx.js"></script>
-<script src="bot.js"></script>
-<script src="tetris-core.js"></script>
-<script src="ui.js"></script>
-<script src="main.js"></script>
+  <!-- Game systems -->
+  <script src="fx.js"></script>
+  <script src="bot.js"></script>
+  <script src="tetris-core.js"></script>
+  <script src="ui.js"></script>
+  <script src="main.js"></script>
 
 </body>
 </html>
-
