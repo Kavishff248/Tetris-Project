@@ -48,8 +48,12 @@ function drawSolo(time) {
   const menuBtn = drawMainMenuButton();
   soloMenuButtonBounds = menuBtn;
 
-  const restartBtn = drawSoloRestartButton();
-  soloRestartButtonBounds = restartBtn;
+  if (window.soloType === 'casual') {
+    const restartBtn = drawSoloRestartButton();
+    soloRestartButtonBounds = restartBtn;
+  } else {
+    soloRestartButtonBounds = null;
+  }
 
   if (gameState === "gameover" && gameMode === "solo") {
     ctx.fillStyle = currentTheme.hudTextColor;
@@ -57,7 +61,11 @@ function drawSolo(time) {
     ctx.textAlign = "center";
     ctx.fillText("GAME OVER", canvas.width / 2, 260);
     ctx.font = "16px Arial";
-    ctx.fillText("Press R to restart | ESC to Menu", canvas.width / 2, 290);
+    if (window.soloType === 'casual') {
+      ctx.fillText("Press R to restart | ESC to Menu", canvas.width / 2, 290);
+    } else {
+      ctx.fillText("Press ESC to return to Menu", canvas.width / 2, 290);
+    }
     return;
   }
 }
@@ -256,6 +264,9 @@ function gameLoop(timestamp) {
   } else if (gameState === "botDifficultySelect") {
     drawBotDifficultySelect(timestamp);
 
+  } else if (gameState === 'soloTypeSelect') {
+    if (window.drawSoloTypeSelect) window.drawSoloTypeSelect();
+
   } else if (gameState === "controls") {
     drawControlsMenu(timestamp);
 
@@ -361,6 +372,20 @@ document.addEventListener("keydown", (e) => {
     return;
   }
 
+  if (gameState === 'soloTypeSelect') {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      window.soloTypeSelection = (window.soloTypeSelection + 2 - 1) % 2;
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      window.soloTypeSelection = (window.soloTypeSelection + 1) % 2;
+    } else if (e.key === 'Enter') {
+      const type = window.soloTypeSelection === 1 ? 'casual' : 'competitive';
+      startSolo(type);
+    } else if (e.key === 'Escape') {
+      gameState = 'menu';
+    }
+    return;
+  }
+
   if (gameState === "options") {
     const optionsCount = window.getOptionsCount ? window.getOptionsCount() : 5;
     if (e.key === "ArrowUp") {
@@ -401,7 +426,11 @@ document.addEventListener("keydown", (e) => {
 
   if (gameState === "nameEntry") {
     if (e.key === "Enter") {
-      const finalName = tempName.trim() || "Player";
+      const finalName = tempName.trim();
+      if (!finalName) {
+        window.nameEntryInvalidUntil = Date.now() + 800;
+        return;
+      }
       if (window.submitScore) window.submitScore(finalName, pendingScore, playerCountry);
       gameState = "leaderboard";
       return;
@@ -431,22 +460,25 @@ document.addEventListener("keydown", (e) => {
   }
 
   if (gameMode === "solo" && gameState === "playing") {
-    if (action === "undo") {
-      e.preventDefault();
-      undoSolo();
-      return;
-    }
-    if (action === "redo") {
-      e.preventDefault();
-      redoSolo();
-      return;
+    if (window.soloType === 'casual') {
+      if (action === "undo") {
+        e.preventDefault();
+        undoSolo();
+        return;
+      }
+      if (action === "redo") {
+        e.preventDefault();
+        redoSolo();
+        return;
+      }
     }
   }
 
   if (gameState === "gameover") {
     if (action === "restart" || e.key.toLowerCase() === "r") {
-      if (gameMode === "solo") startSolo();
-      else if (gameMode === "vsBot") startVSBot();
+      if (gameMode === "solo") {
+        if (window.soloType === 'casual') startSolo('casual');
+      } else if (gameMode === "vsBot") startVSBot();
     }
     return;
   }
@@ -495,8 +527,9 @@ document.addEventListener("keydown", (e) => {
   } else if (action === "hold") {
     holdPiece(pState);
   } else if (action === "restart") {
-    if (gameMode === "solo") startSolo();
-    else if (gameMode === "vsBot") startVSBot();
+    if (gameMode === "solo") {
+      if (window.soloType === 'casual') startSolo('casual');
+    } else if (gameMode === "vsBot") startVSBot();
   }
 });
 
@@ -565,11 +598,20 @@ function handleOptionChange(dir) {
 
 // Start functions
 function startSolo() {
+  // default to competitive if not specified
+  const type = arguments.length > 0 ? arguments[0] : 'competitive';
+  window.soloType = type;
   currentTheme = THEMES[currentThemeKey];
   solo = createPlayerState();
-  soloUndoStack = [];
-  soloRedoStack = [];
-  soloUndoStack.push(clonePlayerState(solo));
+  // Only initialize undo/redo stacks for casual mode
+  if (window.soloType === 'casual') {
+    soloUndoStack = [];
+    soloRedoStack = [];
+    soloUndoStack.push(clonePlayerState(solo));
+  } else {
+    soloUndoStack = [];
+    soloRedoStack = [];
+  }
   gameMode = "solo";
   gameState = "playing";
   popups = [];

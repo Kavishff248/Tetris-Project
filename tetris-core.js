@@ -31,6 +31,10 @@ let tempName = "";
 let pendingScore = 0;
 let leaderboardData = null;
 let leaderboardLoaded = false;
+// Solo mode type: 'competitive' uploads score and disables undo, 'casual' enables undo and doesn't upload
+window.soloType = window.soloType || 'competitive';
+// Selection index used by the solo-type selection screen (0=Competitive,1=Casual)
+window.soloTypeSelection = window.soloTypeSelection || 0;
 
 // Time / FPS
 let lastTime = 0;
@@ -520,9 +524,14 @@ function spawnPiece(pState) {
   if (!canPlace(pState, pState.pieceX, pState.pieceY, pState.rotation)) {
     pState.alive = false;
     if (gameMode === "solo") {
-      gameState = "nameEntry";
-      pendingScore = pState.score;
-      tempName = "";
+      if (window.soloType === 'competitive') {
+        gameState = "nameEntry";
+        pendingScore = pState.score;
+        tempName = "";
+      } else {
+        // casual: go to gameover without prompting for leaderboard name
+        gameState = "gameover";
+      }
     } else {
       gameState = "gameover";
     }
@@ -919,7 +928,9 @@ function actionFromKeyEvent(e) {
 
 function handleMainMenuSelection() {
   if (menuSelection === 0) {
-    startSolo();
+    // Show solo type selector (competitive vs casual) before starting
+    gameState = 'soloTypeSelect';
+    window.soloTypeSelection = 0;
   } else if (menuSelection === 1) {
     gameState = "botDifficultySelect";
   } else if (menuSelection === 2) {

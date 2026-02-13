@@ -8,6 +8,50 @@ function drawBackgroundGradient() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
+// Helper: draw rounded rect
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+  if (typeof r === 'undefined') r = 6;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
+}
+
+// Helper: wrap text into lines and draw
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '';
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + ' ';
+    const metrics = ctx.measureText(testLine);
+    const testWidth = metrics.width;
+    if (testWidth > maxWidth && n > 0) {
+      ctx.fillText(line.trim(), x, y);
+      line = words[n] + ' ';
+      y += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  if (line) ctx.fillText(line.trim(), x, y);
+}
+
+// convert hex color to rgba string with alpha
+function hexToRgba(hex, alpha) {
+  if (!hex) return `rgba(255,255,255,${alpha})`;
+  const h = hex.replace('#', '');
+  const bigint = parseInt(h, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 // Drawing helpers
 function drawBlock(x, y, color) {
   ctx.save();
@@ -297,25 +341,21 @@ function drawMainMenu(time) {
     const isSelected = (i === menuSelection);
 
     const color = buttonColors[i % buttonColors.length];
-    const alpha = isSelected ? 1.0 : 0.7;
-
     ctx.save();
-    ctx.globalAlpha = alpha;
 
-    ctx.shadowColor = theme.glowColor;
-    ctx.shadowBlur = isSelected ? 24 : 12;
+    // modern rounded button
+    ctx.shadowColor = isSelected ? theme.glowColor : 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = isSelected ? 28 : 8;
+    const grad = ctx.createLinearGradient(x, y, x + btnW, y + btnH);
+    grad.addColorStop(0, hexToRgba(color, isSelected ? 0.95 : 0.85));
+    grad.addColorStop(1, hexToRgba(color, isSelected ? 0.82 : 0.7));
+    ctx.fillStyle = grad;
+    roundRect(ctx, x, y, btnW, btnH, 12, true, false);
 
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, btnW, btnH);
-
-    ctx.strokeStyle = "rgba(255,255,255,0.8)";
-    ctx.lineWidth = isSelected ? 3 : 1.5;
-    ctx.strokeRect(x, y, btnW, btnH);
-
-    ctx.shadowBlur = 0;
-
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(label, x + 20, y + btnH / 2);
+    ctx.fillStyle = '#fff';
+    ctx.font = isSelected ? '20px Arial Black' : '18px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, x + 26, y + btnH / 2 + (isSelected ? 2 : 0));
 
     ctx.restore();
 
@@ -782,6 +822,25 @@ function drawNameEntry() {
   ctx.font = "18px Arial";
   ctx.fillText("Press ENTER to submit", canvas.width / 2, 340);
 
+  // Show brief on-screen validation if name was empty on submit
+  const invalidUntil = window.nameEntryInvalidUntil || 0;
+  if (Date.now() < invalidUntil) {
+    const t = Date.now();
+    const alpha = 0.6 + 0.4 * Math.abs(Math.sin((t % 400) / 400 * Math.PI * 2));
+    ctx.fillStyle = `rgba(255,80,80,${alpha.toFixed(3)})`;
+    ctx.font = "16px Arial";
+    ctx.fillText("Please enter a name", canvas.width / 2, 320);
+    // draw a subtle red underline under the name
+    ctx.strokeStyle = `rgba(255,80,80,${alpha.toFixed(3)})`;
+    ctx.lineWidth = 2;
+    const textWidth = ctx.measureText(tempName || "_").width;
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2 - textWidth / 2 - 6, 288);
+    ctx.lineTo(canvas.width / 2 + textWidth / 2 + 6, 288);
+    ctx.stroke();
+    ctx.fillStyle = currentTheme.hudTextColor;
+  }
+
   ctx.restore();
 }
 
@@ -800,3 +859,115 @@ window.drawControlsMenu = drawControlsMenu;
 window.drawNameEntry = drawNameEntry;
 window.drawPopups = drawPopups;
 window.drawBlock = drawBlock;
+// Solo type selection screen: Competitive or Casual
+function drawSoloTypeSelect() {
+  drawBackgroundGradient();
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.fillStyle = currentTheme.hudTextColor;
+
+  ctx.font = "42px Arial Black";
+  ctx.fillText("SELECT SOLO MODE", canvas.width / 2, 160);
+
+  // Draw option cards centered
+  const cardW = Math.min(520, Math.floor(canvas.width * 0.28));
+  const cardH = Math.min(160, Math.floor(canvas.height * 0.18));
+  const gap = 40;
+  const totalW = cardW * 2 + gap;
+  const startX = Math.round((canvas.width - totalW) / 2);
+  const startY = Math.round(canvas.height / 2 - cardH / 2 + 20);
+  const options = [
+    {
+      title: "Competitive",
+      desc: "No undo/redo — score uploads to leaderboard",
+      color: "#FF6B6B"
+    },
+    {
+      title: "Casual",
+      desc: "Undo/redo allowed — does NOT upload score",
+      color: "#66CCFF"
+    }
+  ];
+
+  for (let i = 0; i < options.length; i++) {
+    const x = startX + i * (cardW + gap);
+    const y = startY;
+    const opt = options[i];
+    const selected = (window.soloTypeSelection || 0) === i;
+
+    // pulsing glow for selected
+    const now = performance.now();
+    const pulse = 0.8 + 0.2 * Math.sin(now * 0.006 + i);
+
+    // card background gradient
+    const g = ctx.createLinearGradient(x, y, x + cardW, y + cardH);
+    if (selected) {
+      g.addColorStop(0, hexToRgba(opt.color, 0.14 * pulse));
+      g.addColorStop(1, hexToRgba(opt.color, 0.04 * pulse));
+    } else {
+      g.addColorStop(0, 'rgba(255,255,255,0.02)');
+      g.addColorStop(1, 'rgba(0,0,0,0.02)');
+    }
+
+    ctx.save();
+    ctx.shadowColor = selected ? opt.color : 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = selected ? 30 * pulse : 10;
+    ctx.fillStyle = g;
+    roundRect(ctx, x, y, cardW, cardH, 14, true, false);
+
+    // small icon box
+    const iconX = x + 18;
+    const iconY = y + 18;
+    const iconSize = 56;
+    ctx.fillStyle = hexToRgba(opt.color, 0.95);
+    roundRect(ctx, iconX, iconY, iconSize, iconSize, 10, true, false);
+    // draw mini piece as icon (competitive = red square, casual = blue rounded)
+    ctx.save();
+    ctx.translate(iconX + iconSize / 2, iconY + iconSize / 2);
+    if (i === 0) {
+      // competitive: draw 'TT' symbol
+      ctx.fillStyle = '#fff';
+      ctx.font = '24px Arial Black';
+      ctx.textAlign = 'center';
+      ctx.fillText('CP', 0, 8);
+    } else {
+      ctx.fillStyle = '#fff';
+      ctx.font = '20px Arial Black';
+      ctx.textAlign = 'center';
+      ctx.fillText('CS', 0, 8);
+    }
+    ctx.restore();
+
+    // title & desc
+    ctx.fillStyle = selected ? '#ffffff' : 'rgba(255,255,255,0.95)';
+    ctx.font = '24px Arial Black';
+    ctx.textAlign = 'left';
+    ctx.fillText(opt.title, x + 24 + iconSize + 12, y + 46);
+
+    ctx.font = '14px Arial';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    wrapText(ctx, opt.desc, x + 24 + iconSize + 12, y + 74, cardW - (24 + iconSize + 36), 18);
+
+    // selected badge
+    if (selected) {
+      ctx.fillStyle = hexToRgba('#ffffff', 0.06);
+      roundRect(ctx, x + cardW - 110, y + 18, 86, 36, 10, true, false);
+      ctx.fillStyle = '#fff';
+      ctx.font = '13px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('SELECTED', x + cardW - 66, y + 41);
+    }
+
+    ctx.restore();
+  }
+
+  // Helper text
+  ctx.textAlign = "center";
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  ctx.fillText("Use ←/→ to choose, ENTER to confirm — Competitive uploads score", canvas.width / 2, canvas.height - 72);
+
+  ctx.restore();
+}
+
+window.drawSoloTypeSelect = drawSoloTypeSelect;

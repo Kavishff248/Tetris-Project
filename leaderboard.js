@@ -21,21 +21,13 @@ window.queueLocalScore = function queueLocalScore(entry) {
 
 window.flushLocalQueue = async function flushLocalQueue() {
   if (!window.supabase || window.localQueue.length === 0) return;
-
   const pending = [...window.localQueue];
   window.localQueue = [];
   window.saveQueue();
 
   for (const entry of pending) {
     try {
-      const { error } = await window.supabase
-        .from("scores")
-        .insert([entry]);
-
-      if (error) {
-        console.error("Failed to flush queued score:", error);
-        window.queueLocalScore(entry);
-      }
+      await window.submitScore(entry.name, entry.score, entry.country);
     } catch (err) {
       console.error("Error flushing queued score:", err);
       window.queueLocalScore(entry);
@@ -81,6 +73,11 @@ window.loadLeaderboard = async function loadLeaderboard() {
 
 window.submitScore = async function submitScore(name, score, country) {
   try {
+    if (!name || !name.toString().trim()) {
+      console.log("Name required to submit to leaderboard");
+      return;
+    }
+
     if (score === 0) {
       console.log("Score is zero, not adding to leaderboard");
       return;
@@ -99,16 +96,49 @@ window.submitScore = async function submitScore(name, score, country) {
       return;
     }
 
-    const { error } = await window.supabase
+    // Check for existing player by name
+    const { data: rows, error: selectError } = await window.supabase
       .from("scores")
-      .insert([entry]);
+      .select("*")
+      .eq("name", name)
+      .limit(1);
 
-    if (error) {
-      console.error("Supabase insert failed, queueing locally:", error);
+    if (selectError) {
+      console.error("Supabase select failed, queueing locally:", selectError);
       window.queueLocalScore(entry);
+      return;
+    }
+
+    if (rows && rows.length > 0) {
+      const existing = rows[0];
+      if (score > existing.score) {
+        const { error: updateError } = await window.supabase
+          .from("scores")
+          .update({ score: entry.score, country: entry.country, timestamp: entry.timestamp })
+          .eq("id", existing.id);
+
+        if (updateError) {
+          console.error("Supabase update failed, queueing locally:", updateError);
+          window.queueLocalScore(entry);
+        } else {
+          console.log("Score updated for player:", name);
+          await window.loadLeaderboard();
+        }
+      } else {
+        console.log("Existing score is higher or equal — not updating leaderboard for:", name);
+      }
     } else {
-      console.log("Score submitted to Supabase:", entry);
-      await window.loadLeaderboard();
+      const { error: insertError } = await window.supabase
+        .from("scores")
+        .insert([entry]);
+
+      if (insertError) {
+        console.error("Supabase insert failed, queueing locally:", insertError);
+        window.queueLocalScore(entry);
+      } else {
+        console.log("Score submitted to Supabase:", entry);
+        await window.loadLeaderboard();
+      }
     }
   } catch (err) {
     console.error("Error submitting score:", err);
