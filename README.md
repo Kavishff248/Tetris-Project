@@ -1,8 +1,6 @@
 # Tetris-Project
-A modern multiplayer falling-block puzzle game inspired by Tetr.io, built in JavaScript with competitive modes and bot play.\
+A modern multiplayer falling-block puzzle game inspired by Tetr.io, built in JavaScript with competitive modes and bot play.
 Play Here:
 https://kavishff248.github.io/Tetris-Project/
 
-## Global leaderboard (Firebase)
-This project now uses Firebase Realtime Database so scores are shared globally across devices.
 
