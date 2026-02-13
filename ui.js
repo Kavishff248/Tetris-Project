@@ -420,11 +420,6 @@ async function drawLeaderboardScreen(time) {
   ctx.font = "42px Arial Black";
   ctx.fillText("LEADERBOARD", canvas.width / 2, 120);
 
-  ctx.shadowBlur = 0;
-  ctx.font = "20px Arial";
-  ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.fillText("Loading...", canvas.width / 2, 180);
-
   ctx.restore();
 
  const entries = leaderboardData || [];
@@ -971,3 +966,4 @@ function drawSoloTypeSelect() {
 }
 
 window.drawSoloTypeSelect = drawSoloTypeSelect;
+
