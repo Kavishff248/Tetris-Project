@@ -411,49 +411,156 @@ function drawMainMenu(time) {
 async function drawLeaderboardScreen(time) {
   drawBackgroundGradient();
 
+  const t = time / 1000;
+  const entries = leaderboardData || [];
+
+  // TITLE
   ctx.save();
   ctx.textAlign = "center";
   ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 14;
-
+  ctx.shadowBlur = 20;
   ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "42px Arial Black";
-  ctx.fillText("LEADERBOARD", canvas.width / 2, 120);
-
+  ctx.font = "52px Arial Black";
+  ctx.fillText("LEADERBOARD", canvas.width / 2, 90);
   ctx.restore();
 
- const entries = leaderboardData || [];
+  // CONTAINER & ENTRIES
+  const containerX = canvas.width / 2 - 420;
+  const containerY = 150;
+  const containerW = 840;
+  const containerH = Math.min(entries.length * 56 + 80, 600);
 
+  // Modern container background
   ctx.save();
+  ctx.shadowColor = currentTheme.glowColor;
+  ctx.shadowBlur = 25;
+  const containerGrad = ctx.createLinearGradient(containerX, containerY, containerX, containerY + containerH);
+  containerGrad.addColorStop(0, "rgba(100,150,255,0.08)");
+  containerGrad.addColorStop(0.5, "rgba(100,150,255,0.03)");
+  containerGrad.addColorStop(1, "rgba(100,150,255,0.08)");
+  ctx.fillStyle = containerGrad;
+  roundRect(ctx, containerX, containerY, containerW, containerH, 16, true, false);
+
+  // Border
+  ctx.strokeStyle = currentTheme.glowColor;
+  ctx.lineWidth = 2;
+  roundRect(ctx, containerX, containerY, containerW, containerH, 16, false, true);
+  ctx.restore();
+
+  // HEADER ROW
+  ctx.save();
+  const headerY = containerY + 25;
+  ctx.font = "bold 16px Arial";
+  ctx.fillStyle = currentTheme.glowColor;
   ctx.textAlign = "left";
-  ctx.font = "20px Arial";
-  ctx.fillStyle = "#fff";
+  ctx.fillText("#", containerX + 20, headerY);
+  ctx.fillText("NAME", containerX + 70, headerY);
+  ctx.fillText("SCORE", containerX + 460, headerY);
+  ctx.fillText("COUNTRY", containerX + 650, headerY);
+  ctx.restore();
 
-  const startX = canvas.width / 2 - 300;
-  let y = 240;
+  // Separator line
+  ctx.save();
+  ctx.strokeStyle = `rgba(${currentTheme.glowColor ? currentTheme.glowColor : '#fff'},0.2)`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(containerX + 15, headerY + 8);
+  ctx.lineTo(containerX + containerW - 15, headerY + 8);
+  ctx.stroke();
+  ctx.restore();
 
-  ctx.font = "22px Arial Black";
-  ctx.fillText("Name", startX, y);
-  ctx.fillText("Score", startX + 260, y);
-  ctx.fillText("Country", startX + 420, y);
+  // ENTRIES
+  ctx.save();
+  let entryY = headerY + 32;
+  entries.slice(0, 15).forEach((e, idx) => {
+    const rank = idx + 1;
+    const isMedal = rank <= 3;
+    
+    // Row background with gradient
+    if (idx % 2 === 0) {
+      const rowGrad = ctx.createLinearGradient(containerX + 10, entryY - 20, containerX + 10, entryY + 20);
+      rowGrad.addColorStop(0, "rgba(255,255,255,0.02)");
+      rowGrad.addColorStop(1, "rgba(255,255,255,0.00)");
+      ctx.fillStyle = rowGrad;
+      ctx.fillRect(containerX + 10, entryY - 22, containerW - 20, 48);
+    }
 
-  ctx.font = "18px Arial";
-  y += 40;
+    // Glow for top 3
+    if (isMedal) {
+      const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
+      ctx.shadowColor = medalColors[rank - 1];
+      ctx.shadowBlur = 12;
+    } else {
+      ctx.shadowColor = "transparent";
+    }
 
-  entries.slice(0, 15).forEach((e) => {
-    ctx.fillText(e.name || "Player", startX, y);
-    ctx.fillText(e.score || 0, startX + 260, y);
-    ctx.fillText(e.country || "N/A", startX + 420, y);
-    y += 32;
+    // RANK BADGE
+    const rankBadgeX = containerX + 35;
+    const rankBadgeRadius = 14;
+    
+    if (isMedal) {
+      const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
+      const medalBg = ["rgba(255,215,0,0.15)", "rgba(192,192,192,0.15)", "rgba(205,127,50,0.15)"];
+      ctx.fillStyle = medalBg[rank - 1];
+      ctx.beginPath();
+      ctx.arc(rankBadgeX, entryY, rankBadgeRadius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillStyle = medalColors[rank - 1];
+      ctx.font = "bold 18px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const medals = ["🥇", "🥈", "🥉"];
+      ctx.fillText(medals[rank - 1], rankBadgeX, entryY + 1);
+    } else {
+      ctx.fillStyle = "rgba(100,150,255,0.3)";
+      ctx.beginPath();
+      ctx.arc(rankBadgeX, entryY, rankBadgeRadius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.strokeStyle = "rgba(100,150,255,0.5)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.font = "bold 14px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(rank, rankBadgeX, entryY);
+    }
+
+    // NAME
+    ctx.fillStyle = isMedal ? "#FFD700" : "#ffffff";
+    ctx.font = isMedal ? "bold 18px Arial" : "18px Arial";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText((e.name || "Player").substring(0, 20), containerX + 70, entryY);
+
+    // SCORE - right aligned
+    ctx.fillStyle = isMedal ? "#FFD700" : "rgba(150,200,255,0.95)";
+    ctx.font = isMedal ? "bold 20px Arial Black" : "bold 18px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText((e.score || 0).toLocaleString(), containerX + 550, entryY);
+
+    // COUNTRY
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(e.country || "N/A", containerX + 650, entryY);
+
+    entryY += 56;
   });
 
   ctx.restore();
 
+  // FOOTER TEXT
   ctx.save();
   ctx.textAlign = "center";
-  ctx.font = "18px Arial";
-  ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.fillText("Press ESC to return", canvas.width / 2, canvas.height - 40);
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 5;
+  ctx.fillText("↑ ↓ Navigate | ESC to Return", canvas.width / 2, canvas.height - 50);
   ctx.restore();
 }
 
@@ -461,14 +568,16 @@ async function drawLeaderboardScreen(time) {
 function drawOptions(time) {
   drawBackgroundGradient();
 
+  const t = time / 1000;
+
   ctx.save();
   ctx.textAlign = "center";
 
   ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 14;
+  ctx.shadowBlur = 20;
   ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "30px Arial";
-  ctx.fillText("OPTIONS", canvas.width / 2, 140);
+  ctx.font = "52px Arial Black";
+  ctx.fillText("OPTIONS", canvas.width / 2, 90);
 
   const rows = [
     `Theme: ${THEMES[currentThemeKey].name}`,
@@ -480,157 +589,273 @@ function drawOptions(time) {
     `Background Glow: ${backgroundGlowEnabled ? "On" : "Off"}`
   ];
 
-  ctx.font = "20px Arial";
+  // Container
+  const containerX = canvas.width / 2 - 380;
+  const containerY = 160;
+  const containerW = 760;
+  const optionH = 56;
+  const containerH = rows.length * optionH + 40;
 
+  // Modern container background
+  ctx.shadowColor = currentTheme.glowColor;
+  ctx.shadowBlur = 25;
+  const containerGrad = ctx.createLinearGradient(containerX, containerY, containerX, containerY + containerH);
+  containerGrad.addColorStop(0, "rgba(100,150,255,0.08)");
+  containerGrad.addColorStop(0.5, "rgba(100,150,255,0.03)");
+  containerGrad.addColorStop(1, "rgba(100,150,255,0.08)");
+  ctx.fillStyle = containerGrad;
+  roundRect(ctx, containerX, containerY, containerW, containerH, 16, true, false);
+
+  // Border
+  ctx.strokeStyle = currentTheme.glowColor;
+  ctx.lineWidth = 2;
+  roundRect(ctx, containerX, containerY, containerW, containerH, 16, false, true);
+  ctx.restore();
+
+  // Options
+  ctx.save();
   rows.forEach((label, i) => {
-    const y = 200 + i * 40;
+    const y = containerY + 30 + i * optionH;
     const selected = (i === optionsSelection);
 
-    ctx.fillStyle = selected
-      ? currentTheme.hudTextColor
-      : "rgba(255,255,255,0.7)";
-
-    ctx.fillText(label, canvas.width / 2, y);
-
+    // Row background
     if (selected) {
-      const glowGrad = ctx.createLinearGradient(
-        canvas.width / 2 - 260, 0,
-        canvas.width / 2 + 260, 0
-      );
-      glowGrad.addColorStop(0, currentTheme.glowColor);
-      glowGrad.addColorStop(1, "rgba(255,255,255,0.15)");
+      const rowGrad = ctx.createLinearGradient(containerX + 10, y - 24, containerX + 10, y + 24);
+      rowGrad.addColorStop(0, "rgba(100,150,255,0.12)");
+      rowGrad.addColorStop(1, "rgba(100,150,255,0.03)");
+      ctx.fillStyle = rowGrad;
+      ctx.fillRect(containerX + 10, y - 24, containerW - 20, optionH);
 
-      ctx.strokeStyle = glowGrad;
+      // Selection border
+      ctx.strokeStyle = currentTheme.glowColor;
       ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(canvas.width / 2 - 260, y + 8);
-      ctx.lineTo(canvas.width / 2 + 260, y + 8);
-      ctx.stroke();
+      ctx.strokeRect(containerX + 10, y - 24, containerW - 20, optionH);
+    } else if (i % 2 === 0) {
+      ctx.fillStyle = "rgba(255,255,255,0.02)";
+      ctx.fillRect(containerX + 10, y - 24, containerW - 20, optionH);
+    }
+
+    // Label
+    ctx.fillStyle = selected ? currentTheme.hudTextColor : "rgba(255,255,255,0.85)";
+    ctx.font = selected ? "bold 18px Arial" : "18px Arial";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, containerX + 40, y + 2);
+
+    // Arrow indicator for selected
+    if (selected) {
+      ctx.fillStyle = currentTheme.glowColor;
+      ctx.font = "bold 20px Arial";
+      ctx.textAlign = "right";
+      ctx.fillText("◄ ►", containerX + containerW - 40, y + 2);
     }
   });
+
+  ctx.restore();
 
   // expose option count so main.js can use it for navigation
   window.getOptionsCount = () => rows.length;
 
-  ctx.font = "16px Arial";
-  ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.shadowBlur = 10;
-  ctx.fillText(
-    "LEFT/RIGHT to change, UP/DOWN to move, ESC to return",
-    canvas.width / 2,
-    canvas.height - 40
-  );
-
+  // Instructions
+  ctx.save();
+  ctx.font = "14px Arial";
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 5;
+  ctx.fillText("← → to change | ↑ ↓ to navigate | ESC to return", canvas.width / 2, canvas.height - 50);
   ctx.restore();
 }
 
 function drawBotDifficultySelect(time) {
   drawBackgroundGradient();
 
-  ctx.save();
-  ctx.textAlign = "center";
-
   const t = time / 1000;
 
-  // Title with glow
+  // TITLE
+  ctx.save();
+  ctx.textAlign = "center";
   ctx.shadowColor = currentTheme.glowColor;
   ctx.shadowBlur = 20;
   ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "bold 48px Arial";
-  ctx.fillText("SELECT BOT DIFFICULTY", canvas.width / 2, 100);
+  ctx.font = "52px Arial Black";
+  ctx.fillText("SELECT BOT DIFFICULTY", canvas.width / 2, 90);
 
-  // Subtitle
-  ctx.font = "18px Arial";
+  ctx.font = "14px Arial";
   ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.shadowBlur = 0;
-  ctx.fillText("Choose your opponent's skill level", canvas.width / 2, 140);
+  ctx.fillText("Choose your opponent's skill level", canvas.width / 2, 125);
+  ctx.restore();
 
   const difficulties = [
-    { label: "EASY", desc: "Relaxed & Forgiving", difficulty: "👨" },
-    { label: "NORMAL", desc: "Balanced Challenge", difficulty: "🤖" },
-    { label: "HARD", desc: "Unbeatable AI", difficulty: "⚡" }
+    { label: "EASY", desc: "Relaxed opponent", level: 1, color: "#66FF99" },
+    { label: "NORMAL", desc: "Balanced challenge", level: 2, color: "#FFD700" },
+    { label: "HARD", desc: "Expert difficulty", level: 3, color: "#FF6B6B" }
   ];
 
   difficulties.forEach((diff, i) => {
-    const x = canvas.width / 2 - 300 + i * 300;
-    const y = 300;
+    const x = canvas.width / 2 - 320 + i * 320;
+    const y = 320;
     const selected = (i === botDifficultySelection);
 
-    const w = 240;
-    const h = 200;
+    const cardW = 240;
+    const cardH = 260;
 
-    // Background card with gradient
+    // Card background with gradient
     ctx.save();
-    const gradient = ctx.createLinearGradient(x - w/2, y - h/2, x - w/2, y + h/2);
+    ctx.shadowColor = selected ? currentTheme.glowColor : "rgba(0,0,0,0.4)";
+    ctx.shadowBlur = selected ? 30 : 12;
+
+    const cardGrad = ctx.createLinearGradient(x - cardW/2, y - cardH/2, x - cardW/2, y + cardH/2);
     
     if (selected) {
-      gradient.addColorStop(0, currentTheme.glowColor);
-      gradient.addColorStop(0.5, "rgba(100,150,255,0.3)");
-      gradient.addColorStop(1, currentTheme.glowColor);
-      ctx.shadowBlur = 30;
-      ctx.shadowColor = currentTheme.glowColor;
+      cardGrad.addColorStop(0, "rgba(100,150,255,0.12)");
+      cardGrad.addColorStop(0.5, "rgba(100,150,255,0.05)");
+      cardGrad.addColorStop(1, "rgba(100,150,255,0.12)");
     } else {
-      gradient.addColorStop(0, "rgba(255,255,255,0.1)");
-      gradient.addColorStop(1, "rgba(255,255,255,0.05)");
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = "rgba(0,0,0,0.5)";
+      cardGrad.addColorStop(0, "rgba(255,255,255,0.04)");
+      cardGrad.addColorStop(1, "rgba(255,255,255,0.01)");
     }
-    
-    ctx.fillStyle = gradient;
-    ctx.fillRect(x - w/2, y - h/2, w, h);
+
+    ctx.fillStyle = cardGrad;
+    roundRect(ctx, x - cardW/2, y - cardH/2, cardW, cardH, 14, true, false);
 
     // Border
-    ctx.strokeStyle = selected ? currentTheme.hudTextColor : "rgba(255,255,255,0.3)";
-    ctx.lineWidth = selected ? 4 : 2;
-    ctx.strokeRect(x - w/2, y - h/2, w, h);
+    ctx.strokeStyle = selected ? currentTheme.glowColor : "rgba(255,255,255,0.15)";
+    ctx.lineWidth = selected ? 2.5 : 1.5;
+    roundRect(ctx, x - cardW/2, y - cardH/2, cardW, cardH, 14, false, true);
 
-    // Pulsing animation for selected
+    // Pulsing glow for selected
     if (selected) {
-      const pulse = 0.8 + 0.2 * Math.sin(t * 3);
-      ctx.globalAlpha = pulse;
+      const pulse = 0.7 + 0.3 * Math.sin(t * 3);
+      ctx.globalAlpha = pulse * 0.5;
       ctx.strokeStyle = currentTheme.glowColor;
       ctx.lineWidth = 1;
-      ctx.strokeRect(x - w/2 - 5, y - h/2 - 5, w + 10, h + 10);
+      roundRect(ctx, x - cardW/2 - 6, y - cardH/2 - 6, cardW + 12, cardH + 12, 16, false, true);
       ctx.globalAlpha = 1;
     }
 
     ctx.restore();
 
-    // Difficulty icon
-    ctx.font = "48px Arial";
-    ctx.fillText(diff.difficulty, x, y - 60);
-
-    // Label
-    ctx.fillStyle = selected ? currentTheme.hudTextColor : "rgba(255,255,255,0.8)";
-    ctx.font = "bold 28px Arial";
-    ctx.fillText(diff.label, x, y - 10);
-
-    // Description
-    ctx.font = "14px Arial";
-    ctx.fillStyle = selected ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.6)";
-    ctx.fillText(diff.desc, x, y + 25);
-
-    // Stats bar
-    const statsWidth = 180;
-    const barY = y + 60;
-    const barHeight = 6;
-    const fills = [0.4, 0.7, 1.0];
+    // DIFFICULTY ICON (modern design instead of emoji)
+    ctx.save();
+    const iconY = y - 80;
+    const iconSize = 50;
     
-    ctx.fillStyle = "rgba(255,255,255,0.2)";
-    ctx.fillRect(x - statsWidth/2, barY, statsWidth, barHeight);
-    
-    ctx.fillStyle = selected ? currentTheme.glowColor : "rgba(100,150,255,0.5)";
-    ctx.fillRect(x - statsWidth/2, barY, statsWidth * fills[i], barHeight);
+    // Icon background circle
+    ctx.fillStyle = `rgba(${diff.color.slice(1).match(/.{1,2}/g).map(x => parseInt(x, 16)).join(',')},0.15)`;
+    ctx.beginPath();
+    ctx.arc(x, iconY, iconSize, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Icon border
+    ctx.strokeStyle = diff.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw icon based on difficulty
+    ctx.fillStyle = diff.color;
+    ctx.strokeStyle = diff.color;
+    ctx.lineWidth = 2;
+
+    if (i === 0) {
+      // EASY: Simple smiley face
+      ctx.beginPath();
+      ctx.arc(x, iconY, 18, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = diff.color;
+      ctx.beginPath();
+      ctx.arc(x - 7, iconY - 4, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + 7, iconY - 4, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, iconY + 6, 1.5, 0, Math.PI);
+      ctx.stroke();
+    } else if (i === 1) {
+      // NORMAL: Shield with checkmark
+      ctx.beginPath();
+      ctx.moveTo(x - 12, iconY - 18);
+      ctx.lineTo(x + 12, iconY - 18);
+      ctx.lineTo(x + 12, iconY + 2);
+      ctx.quadraticCurveTo(x, iconY + 14, x - 12, iconY + 2);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - 4, iconY + 2);
+      ctx.lineTo(x + 2, iconY + 6);
+      ctx.lineTo(x + 8, iconY - 4);
+      ctx.stroke();
+    } else {
+      // HARD: Lightning bolt
+      ctx.beginPath();
+      ctx.moveTo(x, iconY - 18);
+      ctx.lineTo(x - 8, iconY - 2);
+      ctx.lineTo(x - 2, iconY);
+      ctx.lineTo(x + 2, iconY + 18);
+      ctx.lineTo(x - 4, iconY + 6);
+      ctx.lineTo(x - 10, iconY + 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    ctx.restore();
+
+    // LABEL
+    ctx.fillStyle = selected ? currentTheme.hudTextColor : "rgba(255,255,255,0.9)";
+    ctx.font = selected ? "bold 26px Arial" : "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(diff.label, x, y + 30);
+
+    // DESCRIPTION
+    ctx.fillStyle = selected ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.7)";
+    ctx.font = "13px Arial";
+    ctx.fillText(diff.desc, x, y + 60);
+
+    // DIFFICULTY GAUGE
+    const gaugeY = y + 95;
+    const gaugeW = 180;
+    const gaugeH = 6;
+    const fill = [0.35, 0.65, 1.0][i];
+
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    roundRect(ctx, x - gaugeW/2, gaugeY, gaugeW, gaugeH, 3, true, false);
+
+    ctx.fillStyle = diff.color;
+    roundRect(ctx, x - gaugeW/2, gaugeY, gaugeW * fill, gaugeH, 3, true, false);
+
+    // STATS TEXT
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = "11px Arial";
+    ctx.textAlign = "center";
+    const difficultyText = ["Beginner", "Intermediate", "Expert"][i];
+    ctx.fillText(difficultyText, x, gaugeY + 22);
+
+    // SELECTED BADGE
+    if (selected) {
+      ctx.save();
+      ctx.fillStyle = "rgba(100,150,255,0.12)";
+      roundRect(ctx, x - 50, y + 120, 100, 24, 6, true, false);
+      ctx.fillStyle = currentTheme.glowColor;
+      ctx.font = "bold 11px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("SELECTED", x, y + 132);
+      ctx.restore();
+    }
   });
 
-  // Instructions
-  ctx.font = "16px Arial";
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  // INSTRUCTIONS
+  ctx.save();
   ctx.textAlign = "center";
-  ctx.shadowBlur = 5;
+  ctx.font = "13px Arial";
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.fillText("← → Arrow Keys to Select | ENTER to Start | ESC to Cancel", canvas.width / 2, canvas.height - 60);
-
+  ctx.shadowBlur = 5;
+  ctx.fillText("← → to select | ENTER to start | ESC to cancel", canvas.width / 2, canvas.height - 50);
   ctx.restore();
 }
 
@@ -650,7 +875,7 @@ function drawControlsMenu(time) {
   ctx.fillText("CONTROL SETTINGS", canvas.width / 2, 70);
 
   // Subtitle
-  ctx.font = "15px Arial";
+  ctx.font = "14px Arial";
   ctx.fillStyle = "rgba(255,255,255,0.5)";
   ctx.shadowBlur = 0;
   ctx.fillText("Select a control and press ENTER to rebind", canvas.width / 2, 105);
@@ -677,28 +902,51 @@ function drawControlsMenu(time) {
   ];
 
   let itemIndex = 0;
-  let currentY = 160;
+  let currentY = 155;
 
-  groups.forEach((group) => {
-    // Group title
-    ctx.font = "bold 14px Arial";
-    ctx.fillStyle = currentTheme.glowColor;
-    ctx.textAlign = "left";
-    ctx.fillText(group.title, 60, currentY);
-    ctx.shadowBlur = 0;
-
-    currentY += 40;
-
-    // Group items in 2-column layout
+  groups.forEach((group, groupIdx) => {
+    // Container for group
     const itemsInGroup = group.actions.filter(action => action in actionLabels);
     const rows = Math.ceil(itemsInGroup.length / 2);
+    const groupContainerH = rows * 56 + 45;
+    
+    const groupX = canvas.width / 2 - 500;
+    const groupY = currentY - 15;
+    const groupW = 1000;
 
+    // Group container background
+    ctx.save();
+    ctx.shadowColor = currentTheme.glowColor;
+    ctx.shadowBlur = 15;
+    const groupGrad = ctx.createLinearGradient(groupX, groupY, groupX, groupY + groupContainerH);
+    groupGrad.addColorStop(0, "rgba(100,150,255,0.05)");
+    groupGrad.addColorStop(1, "rgba(100,150,255,0.02)");
+    ctx.fillStyle = groupGrad;
+    roundRect(ctx, groupX, groupY, groupW, groupContainerH, 12, true, false);
+
+    // Border
+    ctx.strokeStyle = "rgba(100,150,255,0.3)";
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, groupX, groupY, groupW, groupContainerH, 12, false, true);
+    ctx.restore();
+
+    // Group title
+    ctx.save();
+    ctx.font = "bold 13px Arial";
+    ctx.fillStyle = currentTheme.glowColor;
+    ctx.textAlign = "left";
+    ctx.fillText(group.title, groupX + 24, groupY + 28);
+    ctx.restore();
+
+    currentY += 45;
+
+    // Group items in 2-column layout
     itemsInGroup.forEach((action, idx) => {
       const row = Math.floor(idx / 2);
       const col = idx % 2;
 
-      const x = col === 0 ? 280 : 640;
-      const y = currentY + row * 48;
+      const x = groupX + 50 + col * 500;
+      const y = currentY + row * 56;
 
       const selected = (itemIndex === controlsSelection);
       const keyBind = controlsConfig[action] || "?";
@@ -706,42 +954,31 @@ function drawControlsMenu(time) {
 
       // Background box with rounded appearance
       ctx.save();
-      const boxWidth = 300;
-      const boxHeight = 42;
+      const boxWidth = 420;
+      const boxHeight = 48;
 
-      const gradient = ctx.createLinearGradient(x - boxWidth/2, y - boxHeight/2, x - boxWidth/2, y + boxHeight/2);
+      const gradient = ctx.createLinearGradient(x, y - boxHeight/2, x, y + boxHeight/2);
 
       if (selected || waitingForThis) {
-        gradient.addColorStop(0, currentTheme.glowColor);
-        gradient.addColorStop(0.5, "rgba(100,150,255,0.25)");
-        gradient.addColorStop(1, currentTheme.glowColor);
-        ctx.shadowBlur = 25;
+        gradient.addColorStop(0, "rgba(100,150,255,0.3)");
+        gradient.addColorStop(0.5, "rgba(100,150,255,0.15)");
+        gradient.addColorStop(1, "rgba(100,150,255,0.3)");
+        ctx.shadowBlur = 20;
         ctx.shadowColor = currentTheme.glowColor;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
       } else {
-        gradient.addColorStop(0, "rgba(255,255,255,0.06)");
-        gradient.addColorStop(1, "rgba(255,255,255,0.02)");
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = "rgba(0,0,0,0.4)";
+        gradient.addColorStop(0, "rgba(255,255,255,0.05)");
+        gradient.addColorStop(1, "rgba(255,255,255,0.01)");
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = "rgba(0,0,0,0.2)";
       }
 
       ctx.fillStyle = gradient;
-      ctx.fillRect(x - boxWidth/2, y - boxHeight/2, boxWidth, boxHeight);
+      roundRect(ctx, x, y - boxHeight/2, boxWidth, boxHeight, 8, true, false);
 
-      // Border with thickness variation
-      ctx.strokeStyle = selected || waitingForThis ? currentTheme.hudTextColor : "rgba(255,255,255,0.2)";
-      ctx.lineWidth = selected || waitingForThis ? 2.5 : 1;
-      ctx.strokeRect(x - boxWidth/2, y - boxHeight/2, boxWidth, boxHeight);
-
-      // Selection indicator line
-      if (selected && !waitingForThis) {
-        ctx.strokeStyle = currentTheme.glowColor;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.strokeRect(x - boxWidth/2 - 2, y - boxHeight/2 - 2, boxWidth + 4, boxHeight + 4);
-        ctx.setLineDash([]);
-      }
+      // Border
+      ctx.strokeStyle = selected || waitingForThis ? currentTheme.hudTextColor : "rgba(255,255,255,0.15)";
+      ctx.lineWidth = selected || waitingForThis ? 2 : 1;
+      roundRect(ctx, x, y - boxHeight/2, boxWidth, boxHeight, 8, false, true);
 
       // Pulsing animation for waiting
       if (waitingForThis) {
@@ -749,54 +986,61 @@ function drawControlsMenu(time) {
         ctx.globalAlpha = pulse;
         ctx.strokeStyle = "#ffff00";
         ctx.lineWidth = 2;
-        ctx.setLineDash([3, 3]);
-        ctx.strokeRect(x - boxWidth/2 - 4, y - boxHeight/2 - 4, boxWidth + 8, boxHeight + 8);
+        ctx.beginPath();
+        ctx.arc(x + 20, y, 16, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.globalAlpha = 1;
-        ctx.setLineDash([]);
       }
 
       ctx.restore();
 
       // Action label
-      ctx.font = selected || waitingForThis ? "bold 15px Arial" : "15px Arial";
-      ctx.fillStyle = selected || waitingForThis ? currentTheme.hudTextColor : "rgba(255,255,255,0.7)";
+      ctx.font = selected || waitingForThis ? "bold 14px Arial" : "14px Arial";
+      ctx.fillStyle = selected || waitingForThis ? currentTheme.hudTextColor : "rgba(255,255,255,0.8)";
       ctx.textAlign = "left";
-      ctx.fillText(actionLabels[action] || action, x - boxWidth/2 + 18, y + 6);
+      ctx.textBaseline = "middle";
+      ctx.fillText(actionLabels[action] || action, x + 20, y);
 
       // Key binding badge
-      const badgeWidth = 70;
-      ctx.textAlign = "right";
+      ctx.save();
+      const badgeWidth = 80;
+      const badgeHeight = 28;
+      const badgeX = x + boxWidth - badgeWidth - 10;
+      const badgeY = y - badgeHeight/2;
 
       if (waitingForThis) {
-        ctx.fillStyle = "rgba(255,255,0,0.15)";
-        ctx.fillRect(x + boxWidth/2 - badgeWidth - 8, y - 14, badgeWidth, 28);
-
+        ctx.fillStyle = "rgba(255,255,0,0.1)";
+        roundRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 6, true, false);
         ctx.fillStyle = "#ffff00";
-        ctx.font = "bold 12px Arial";
-        ctx.fillText("Press key...", x + boxWidth/2 - 10, y + 6);
+        ctx.font = "bold 10px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Press key", badgeX + badgeWidth/2, y);
       } else {
         ctx.fillStyle = selected ? "rgba(102,255,153,0.1)" : "rgba(150,200,255,0.08)";
-        ctx.fillRect(x + boxWidth/2 - badgeWidth - 8, y - 14, badgeWidth, 28);
-
-        ctx.fillStyle = selected ? "#66ff99" : "rgba(150,200,255,0.9)";
-        ctx.font = "bold 13px monospace";
-        ctx.fillText(keyBind, x + boxWidth/2 - 10, y + 6);
+        roundRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 6, true, false);
+        ctx.fillStyle = selected ? "#66ff99" : "rgba(150,200,255,0.85)";
+        ctx.font = "bold 12px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(keyBind, badgeX + badgeWidth/2, y);
       }
+      ctx.restore();
 
       itemIndex++;
     });
 
-    currentY += rows * 48 + 35;
+    currentY += rows * 56 + 20;
   });
 
   // Instructions at bottom
+  ctx.save();
   ctx.font = "13px Arial";
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.textAlign = "center";
   ctx.shadowBlur = 5;
   ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.fillText("↑ ↓ Navigate | ENTER Rebind | ESC Back to Menu", canvas.width / 2, canvas.height - 35);
-
+  ctx.fillText("↑ ↓ Navigate | ENTER Rebind | ESC Back", canvas.width / 2, canvas.height - 40);
   ctx.restore();
 }
 
@@ -966,4 +1210,3 @@ function drawSoloTypeSelect() {
 }
 
 window.drawSoloTypeSelect = drawSoloTypeSelect;
-
