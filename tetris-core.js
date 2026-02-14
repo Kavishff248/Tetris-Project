@@ -86,7 +86,7 @@ function applySpeedPreset() {
   SOFT_DROP_DELAY = preset.softDrop;
   LOCK_DELAY = preset.lock;
 
-  // Propagate preset changes to any existing player states so they're applied immediately
+  
   try {
     if (solo) {
       solo.das = DAS;
@@ -104,15 +104,15 @@ function applySpeedPreset() {
       bot.gravityDelay = GRAVITY_DELAY;
     }
   } catch (e) {
-    // ignore if players not initialized yet
+    
   }
 }
 
-// Optional custom per-user DAS/ARR that override defaults when set (null = unused)
-let CUSTOM_DAS = null; // in ms
-let CUSTOM_ARR = null; // in ms
 
-// Apply custom DAS/ARR to player states (does not change global preset values)
+let CUSTOM_DAS = null; 
+let CUSTOM_ARR = null; 
+
+
 function setCustomPlayerSpeeds(dasMs, arrMs) {
   CUSTOM_DAS = (typeof dasMs === 'number') ? dasMs : CUSTOM_DAS;
   CUSTOM_ARR = (typeof arrMs === 'number') ? arrMs : CUSTOM_ARR;
@@ -150,34 +150,32 @@ let BOT_MOVE_INTERVAL = 1.0;
 let BOT_DROP_INTERVAL = 1.0;
 let BOT_RETHINK_CHANCE = 0.1;
 let BOT_HOLE_PENALTY = 22;
-let BOT_PLACEMENT_ACCURACY = 1.0;  // 0-1: how accurate placement is
-let BOT_AGGRESSION = 0.5;           // 0-1: how aggressive it plays (line clears vs safety)
+let BOT_PLACEMENT_ACCURACY = 1.0;  
+let BOT_AGGRESSION = 0.5;          
 
 function applyBotDifficulty() {
   if (botDifficulty === 0) {
-    // EASY: Slow, cautious, forgiving
-    BOT_MOVE_INTERVAL = 2.5;        // Very slow movement
-    BOT_DROP_INTERVAL = 2.5;        // Very slow drops
-    BOT_RETHINK_CHANCE = 0.05;      // Rarely changes strategy
-    BOT_HOLE_PENALTY = 8;           // Doesn't care much about holes
-    BOT_PLACEMENT_ACCURACY = 0.6;   // 60% accurate placement - makes mistakes
-    BOT_AGGRESSION = 0.2;           // Very defensive, focuses on survival
+    BOT_MOVE_INTERVAL = 2.5;       
+    BOT_DROP_INTERVAL = 2.5;        
+    BOT_RETHINK_CHANCE = 0.05;      
+    BOT_HOLE_PENALTY = 8;          
+    BOT_PLACEMENT_ACCURACY = 0.6;   
+    BOT_AGGRESSION = 0.2;           
   } else if (botDifficulty === 1) {
-    // NORMAL: Balanced, medium speed, reasonable strategy
-    BOT_MOVE_INTERVAL = 1.0;        // Normal movement
-    BOT_DROP_INTERVAL = 1.0;        // Normal drops
-    BOT_RETHINK_CHANCE = 0.1;       // Occasionally reconsiders
-    BOT_HOLE_PENALTY = 22;          // Moderate concern for holes
-    BOT_PLACEMENT_ACCURACY = 0.85;  // 85% accurate - some mistakes
-    BOT_AGGRESSION = 0.5;           // Balanced between safety and clears
+    BOT_MOVE_INTERVAL = 1.0;        
+    BOT_DROP_INTERVAL = 1.0;       
+    BOT_RETHINK_CHANCE = 0.1;     
+    BOT_HOLE_PENALTY = 22;          
+    BOT_PLACEMENT_ACCURACY = 0.85;  
+    BOT_AGGRESSION = 0.5;           
   } else if (botDifficulty === 2) {
     // HARD: Fast, perfect placement, aggressive
-    BOT_MOVE_INTERVAL = 0.15;       // Lightning fast movement
-    BOT_DROP_INTERVAL = 0.15;       // Lightning fast drops
-    BOT_RETHINK_CHANCE = 0.0;       // Never changes strategy (always optimal)
-    BOT_HOLE_PENALTY = 60;          // Extreme penalty for holes
-    BOT_PLACEMENT_ACCURACY = 1.0;   // Perfect placement accuracy
-    BOT_AGGRESSION = 0.9;           // Aggressive - goes for clears and combos
+    BOT_MOVE_INTERVAL = 0.10;       //movement
+    BOT_DROP_INTERVAL = 0.10;       //drops
+    BOT_RETHINK_CHANCE = 0.0;       //strategy
+    BOT_HOLE_PENALTY = 60;          //penalty for holes
+    BOT_PLACEMENT_ACCURACY = 1.1;   // placement accuracy
+    BOT_AGGRESSION = 1.0;           // Aggressive 
   } else {
     BOT_MOVE_INTERVAL = 1.0;
     BOT_DROP_INTERVAL = 1.0;
@@ -189,10 +187,9 @@ function applyBotDifficulty() {
 }
 applyBotDifficulty();
 
-// Simple input state for DAS
+
 const keys = { left: false, right: false, softDrop: false, hardDrop: false };
 
-// THEMES and pieces (kept identical to your original)
 const THEMES = {
   regular: {
     name: "Regular",
@@ -700,8 +697,7 @@ function scoreAfterLock(pState, { linesCleared, tSpin }) {
   pState.score += add;
 }
 
-// Popups and visuals (spawnPopup, spawnClearPopup, updatePopups, drawPopups)
-// These are used by UI; keep them global for ui.js to call
+
 function spawnPopup(pState, text, sub, x, y, color) {
   popups.push({ x, y, text, sub, color, t: 0, life: 900, owner: pState });
 }
