@@ -1,8 +1,6 @@
 console.log("leaderboard.js LOADED");
 
-/* ============================================================
-   LOCAL OFFLINE QUEUE (GLOBAL)
-   ============================================================ */
+
 
 window.localQueue = JSON.parse(localStorage.getItem("offlineScores") || "[]");
 
@@ -15,9 +13,7 @@ window.queueLocalScore = function queueLocalScore(entry) {
   window.saveQueue();
 };
 
-/* ============================================================
-   FLUSH QUEUE TO SUPABASE (GLOBAL)
-   ============================================================ */
+
 
 window.flushLocalQueue = async function flushLocalQueue() {
   if (!window.supabase || window.localQueue.length === 0) return;
@@ -35,9 +31,6 @@ window.flushLocalQueue = async function flushLocalQueue() {
   }
 };
 
-/* ============================================================
-   LOAD LEADERBOARD (GLOBAL)
-   ============================================================ */
 
 window.loadLeaderboard = async function loadLeaderboard() {
   try {
@@ -67,9 +60,7 @@ window.loadLeaderboard = async function loadLeaderboard() {
   }
 };
 
-/* ============================================================
-   SUBMIT SCORE (GLOBAL)
-   ============================================================ */
+
 
 window.submitScore = async function submitScore(name, score, country) {
   try {

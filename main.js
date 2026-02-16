@@ -588,10 +588,26 @@ function handleOptionChange(dir) {
     if (cur === 0) cur = null;
     window.setCustomPlayerSpeeds(window.CUSTOM_DAS, cur);
   } else if (optionsSelection === 4) {
-    masterVolume = Math.min(1, Math.max(0, masterVolume + dir * 0.1));
+    // Soft drop speed: 1..40 cells/s, then Infinity (instant drop)
+    let cur = window.CUSTOM_SOFT_DROP_SPEED;
+    if (cur === null || cur === undefined) cur = 25;
+
+    if (dir > 0) {
+      if (cur === Infinity) cur = 1;
+      else if (cur >= 40) cur = Infinity;
+      else cur += 1;
+    } else if (dir < 0) {
+      if (cur === Infinity) cur = 40;
+      else if (cur <= 1) cur = Infinity;
+      else cur -= 1;
+    }
+
+    if (window.setSoftDropSpeed) window.setSoftDropSpeed(cur);
   } else if (optionsSelection === 5) {
-    showFPS = !showFPS;
+    masterVolume = Math.min(1, Math.max(0, masterVolume + dir * 0.1));
   } else if (optionsSelection === 6) {
+    showFPS = !showFPS;
+  } else if (optionsSelection === 7) {
     backgroundGlowEnabled = !backgroundGlowEnabled;
   }
 }

@@ -65,9 +65,9 @@ let vsMenuButtonBounds = null;
 
 // Movement speed presets
 const SPEED_PRESETS = [
-  { name: "Slow",   gravity: 1200, das: 260, arr: 110, softDrop: 100, lock: 650 },
-  { name: "Normal", gravity: 800,  das: 160, arr: 40,  softDrop: 40,  lock: 500 },
-  { name: "Fast",   gravity: 300,  das: 80,  arr: 10,  softDrop: 20,  lock: 350 },
+  { name: "Slow",   gravity: 1200, das: 150, arr: 16, softDrop: 100, lock: 650 },
+  { name: "Normal", gravity: 800,  das: 110, arr: 10, softDrop: 40,  lock: 500 },
+  { name: "Fast",   gravity: 300,  das: 80,  arr: 6,  softDrop: 20,  lock: 350 },
 ];
 
 let speedPresetIndex = 1;
@@ -75,32 +75,57 @@ let speedPresetIndex = 1;
 let GRAVITY_DELAY = SPEED_PRESETS[speedPresetIndex].gravity;
 let DAS = SPEED_PRESETS[speedPresetIndex].das;
 let ARR = SPEED_PRESETS[speedPresetIndex].arr;
-let SOFT_DROP_DELAY = SPEED_PRESETS[speedPresetIndex].softDrop;
 let LOCK_DELAY = SPEED_PRESETS[speedPresetIndex].lock;
+
+let CUSTOM_SOFT_DROP_SPEED = Infinity; 
+
+function normalizeSoftDropSpeed(value) {
+  if (value === Infinity || value === "Infinity") return Infinity;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return Infinity;
+  return Math.max(1, Math.min(40, Math.round(n)));
+}
+
+function getSoftDropDelayMs() {
+  if (CUSTOM_SOFT_DROP_SPEED === Infinity) return 0;
+  return Math.max(1, Math.round(1000 / CUSTOM_SOFT_DROP_SPEED));
+}
+
+function getCurrentDas() {
+  return (CUSTOM_DAS !== null && CUSTOM_DAS !== undefined) ? CUSTOM_DAS : DAS;
+}
+
+function getCurrentArr() {
+  return (CUSTOM_ARR !== null && CUSTOM_ARR !== undefined) ? CUSTOM_ARR : ARR;
+}
+
+function setSoftDropSpeed(value) {
+  CUSTOM_SOFT_DROP_SPEED = normalizeSoftDropSpeed(value);
+  window.CUSTOM_SOFT_DROP_SPEED = CUSTOM_SOFT_DROP_SPEED;
+}
 
 function applySpeedPreset() {
   const preset = SPEED_PRESETS[speedPresetIndex];
   GRAVITY_DELAY = preset.gravity;
   DAS = preset.das;
   ARR = preset.arr;
-  SOFT_DROP_DELAY = preset.softDrop;
   LOCK_DELAY = preset.lock;
 
   
   try {
     if (solo) {
-      solo.das = DAS;
-      solo.arr = ARR;
+      solo.das = getCurrentDas();
+      solo.arr = getCurrentArr();
       solo.gravityDelay = GRAVITY_DELAY;
     }
     if (player) {
-      player.das = DAS;
-      player.arr = ARR;
+      player.das = getCurrentDas();
+      player.arr = getCurrentArr();
       player.gravityDelay = GRAVITY_DELAY;
     }
     if (bot) {
-      bot.das = DAS;
-      bot.arr = ARR;
+      bot.das = getCurrentDas();
+      bot.arr = getCurrentArr();
       bot.gravityDelay = GRAVITY_DELAY;
     }
   } catch (e) {
@@ -116,8 +141,8 @@ let CUSTOM_ARR = null;
 function setCustomPlayerSpeeds(dasMs, arrMs) {
   CUSTOM_DAS = (typeof dasMs === 'number') ? dasMs : CUSTOM_DAS;
   CUSTOM_ARR = (typeof arrMs === 'number') ? arrMs : CUSTOM_ARR;
-  const dasVal = CUSTOM_DAS !== null ? CUSTOM_DAS : DAS;
-  const arrVal = CUSTOM_ARR !== null ? CUSTOM_ARR : ARR;
+  const dasVal = getCurrentDas();
+  const arrVal = getCurrentArr();
   if (solo) { solo.das = dasVal; solo.arr = arrVal; }
   if (player) { player.das = dasVal; player.arr = arrVal; }
   if (bot) { bot.das = dasVal; bot.arr = arrVal; }
@@ -126,10 +151,12 @@ function setCustomPlayerSpeeds(dasMs, arrMs) {
   window.CUSTOM_ARR = CUSTOM_ARR;
 }
 window.setCustomPlayerSpeeds = setCustomPlayerSpeeds;
+window.setSoftDropSpeed = setSoftDropSpeed;
 
 // expose current custom values on window for UI to read
 window.CUSTOM_DAS = CUSTOM_DAS;
 window.CUSTOM_ARR = CUSTOM_ARR;
+window.CUSTOM_SOFT_DROP_SPEED = CUSTOM_SOFT_DROP_SPEED;
 
 // Recalculate per-player speeds based on level (called when level/time changes)
 function recalcPlayerSpeeds(pState) {
@@ -138,10 +165,6 @@ function recalcPlayerSpeeds(pState) {
   const baseGravity = GRAVITY_DELAY;
   const levelFactor = Math.pow(0.92, Math.max(0, pState.level - 1));
   pState.gravityDelay = Math.max(50, Math.round(baseGravity * levelFactor));
-
-  // Slightly reduce DAS/ARR as level increases for faster responsiveness
-  pState.das = Math.max(30, Math.round(DAS * Math.pow(0.96, Math.max(0, pState.level - 1))));
-  pState.arr = Math.max(6, Math.round(ARR * Math.pow(0.95, Math.max(0, pState.level - 1))));
 }
 
 // Bot difficulty defaults
@@ -409,8 +432,8 @@ function createPlayerState() {
     dasTime: 0,
     arrTime: 0,
     // per-player timing overrides (allow personalized ARR/DAS/gravity)
-    arr: ARR,
-    das: DAS,
+    arr: getCurrentArr(),
+    das: getCurrentDas(),
     gravityDelay: GRAVITY_DELAY,
     score: 0,
     lines: 0,
@@ -967,8 +990,16 @@ function updatePlayer(pState, now) {
   }
 
   const fallDelay = pState.gravityDelay || GRAVITY_DELAY;
+  const softDropDelay = getSoftDropDelayMs();
 
-  if (now - pState.lastDropTime >= (pState.softDropping ? SOFT_DROP_DELAY : fallDelay)) {
+  if (pState.softDropping && CUSTOM_SOFT_DROP_SPEED === Infinity) {
+    const dy = hardDropDistance(pState);
+    if (dy > 0) {
+      if (gameMode === "solo" && pState === solo) pushUndoEveryAction();
+      pState.pieceY += dy;
+    }
+    lockPiece(pState);
+  } else if (now - pState.lastDropTime >= (pState.softDropping ? softDropDelay : fallDelay)) {
     if (canPlace(pState, pState.pieceX, pState.pieceY + 1, pState.rotation)) {
       if (gameMode === "solo" && pState === solo) pushUndoEveryAction();
       pState.pieceY++;

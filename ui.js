@@ -584,6 +584,7 @@ function drawOptions(time) {
     `Move Speed: ${SPEED_PRESETS[speedPresetIndex].name}`,
     `Custom DAS: ${window.CUSTOM_DAS !== null && window.CUSTOM_DAS !== undefined ? window.CUSTOM_DAS + ' ms' : 'Off'}`,
     `Custom ARR: ${window.CUSTOM_ARR !== null && window.CUSTOM_ARR !== undefined ? window.CUSTOM_ARR + ' ms' : 'Off'}`,
+    `Soft Drop Speed: ${window.CUSTOM_SOFT_DROP_SPEED === Infinity ? 'Infinity' : (window.CUSTOM_SOFT_DROP_SPEED || 25) + ' Speed'}`,
     `Volume: ${(masterVolume * 100) | 0}%`,
     `FPS Display: ${showFPS ? "On" : "Off"}`,
     `Background Glow: ${backgroundGlowEnabled ? "On" : "Off"}`
