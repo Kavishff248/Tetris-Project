@@ -181,6 +181,36 @@ function drawBoard(pState, boardX, boardY, theme) {
     }
   }
 
+  // Incoming garbage meter (stylized side rail).
+  const meterX = boardX + COLS * BLOCK + 8;
+  const meterY = boardY;
+  const meterW = 10;
+  const meterH = VISIBLE_ROWS * BLOCK;
+  const incoming = Math.max(0, pState.garbageQueue || 0);
+  const cappedRows = Math.min(VISIBLE_ROWS, incoming);
+  const fillH = Math.round((cappedRows / VISIBLE_ROWS) * meterH);
+  const flash = (pState.garbageFlashUntil && performance.now() < pState.garbageFlashUntil);
+
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  roundRect(ctx, meterX, meterY, meterW, meterH, 5, true, false);
+  if (fillH > 0) {
+    const grad = ctx.createLinearGradient(meterX, meterY + meterH, meterX, meterY + meterH - fillH);
+    grad.addColorStop(0, flash ? "rgba(255,70,70,0.95)" : "rgba(255,120,60,0.85)");
+    grad.addColorStop(1, flash ? "rgba(255,200,80,0.95)" : "rgba(255,190,90,0.9)");
+    ctx.fillStyle = grad;
+    roundRect(ctx, meterX, meterY + meterH - fillH, meterW, fillH, 5, true, false);
+  }
+  ctx.strokeStyle = flash ? "rgba(255,200,120,0.95)" : "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, meterX, meterY, meterW, meterH, 5, false, true);
+
+  if (incoming > 0) {
+    ctx.fillStyle = flash ? "#ffd082" : "rgba(255,255,255,0.85)";
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`${incoming}`, meterX + meterW / 2, meterY - 6);
+  }
+
   ctx.restore();
 }
 
@@ -584,7 +614,8 @@ function drawOptions(time) {
     `Move Speed: ${SPEED_PRESETS[speedPresetIndex].name}`,
     `Custom DAS: ${window.CUSTOM_DAS !== null && window.CUSTOM_DAS !== undefined ? window.CUSTOM_DAS + ' ms' : 'Off'}`,
     `Custom ARR: ${window.CUSTOM_ARR !== null && window.CUSTOM_ARR !== undefined ? window.CUSTOM_ARR + ' ms' : 'Off'}`,
-    `Soft Drop Speed: ${window.CUSTOM_SOFT_DROP_SPEED === Infinity ? 'Infinity' : (window.CUSTOM_SOFT_DROP_SPEED || 25) + ' Speed'}`,
+    `Custom DCD: ${window.CUSTOM_DCD !== null && window.CUSTOM_DCD !== undefined ? window.CUSTOM_DCD + ' ms' : 'Off'}`,
+    `SDF: ${window.CUSTOM_SDF === Infinity ? 'Infinity' : (window.CUSTOM_SDF || 25)}`,
     `Volume: ${(masterVolume * 100) | 0}%`,
     `FPS Display: ${showFPS ? "On" : "Off"}`,
     `Background Glow: ${backgroundGlowEnabled ? "On" : "Off"}`

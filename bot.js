@@ -1,7 +1,3 @@
-// --- SUPER FAST BOT SETTINGS ---
-BOT_MOVE_INTERVAL = 0;
-BOT_DROP_INTERVAL = 0;
-
 function evaluateBoardHeuristic(board, linesCleared) {
   let aggregateHeight = 0;
   let holes = 0;
@@ -301,14 +297,30 @@ function updateBotPlayer(pState, now) {
     const level = Math.max(1, pState.level || 1);
     const levelFactor = Math.pow(0.96, Math.max(0, level - 1));
 
-    // SUPER FAST BOT: removed speed cap
-    const moveInterval = BOT_MOVE_INTERVAL * levelFactor;
-    const dropInterval = BOT_DROP_INTERVAL * levelFactor;
-
-    const placementAccuracy = Math.min(1, BOT_PLACEMENT_ACCURACY + 0.015 * (level - 1));
+    let moveInterval = BOT_MOVE_INTERVAL * levelFactor;
+    let dropInterval = BOT_DROP_INTERVAL * levelFactor;
+    let placementAccuracy = BOT_PLACEMENT_ACCURACY;
+    let rethinkChance = Math.max(0.01, BOT_RETHINK_CHANCE * Math.pow(0.98, Math.max(0, level - 1)));
     const aggression = Math.min(1, BOT_AGGRESSION + 0.01 * (level - 1));
-    const rethinkChance = Math.max(0.01, BOT_RETHINK_CHANCE * Math.pow(0.98, Math.max(0, level - 1)));
     const depth = Math.min(LOOKAHEAD_MAX, 1 + botDifficulty + Math.floor((level - 1) / 10));
+
+    // Keep tier identity stable as levels increase.
+    if (botDifficulty === 0) {
+      placementAccuracy = Math.min(0.70, BOT_PLACEMENT_ACCURACY + 0.004 * (level - 1));
+      moveInterval = Math.max(0.30, moveInterval);
+      dropInterval = Math.max(0.24, dropInterval);
+      rethinkChance = Math.max(0.10, BOT_RETHINK_CHANCE * Math.pow(0.995, Math.max(0, level - 1)));
+    } else if (botDifficulty === 1) {
+      placementAccuracy = Math.min(0.97, BOT_PLACEMENT_ACCURACY + 0.003 * (level - 1));
+      moveInterval = Math.max(0.05, moveInterval);
+      dropInterval = Math.max(0.04, dropInterval);
+      rethinkChance = Math.max(0.015, rethinkChance);
+    } else if (botDifficulty === 2) {
+      placementAccuracy = 1.0;
+      moveInterval = Math.max(0.005, moveInterval);
+      dropInterval = Math.max(0.005, dropInterval);
+      rethinkChance = 0.0;
+    }
 
     pState._botParams = {
       moveInterval,

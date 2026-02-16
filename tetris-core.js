@@ -65,9 +65,9 @@ let vsMenuButtonBounds = null;
 
 // Movement speed presets
 const SPEED_PRESETS = [
-  { name: "Slow",   gravity: 1200, das: 150, arr: 16, softDrop: 100, lock: 650 },
-  { name: "Normal", gravity: 800,  das: 110, arr: 10, softDrop: 40,  lock: 500 },
-  { name: "Fast",   gravity: 300,  das: 80,  arr: 6,  softDrop: 20,  lock: 350 },
+  { name: "Slow",   gravity: 1200, das: 150, arr: 16, dcd: 0, sdf: 100, lock: 650 },
+  { name: "Normal", gravity: 800,  das: 110, arr: 10, dcd: 0, sdf: 40,  lock: 500 },
+  { name: "Fast",   gravity: 300,  das: 80,  arr: 6,  dcd: 0, sdf: 20,  lock: 350 },
 ];
 
 let speedPresetIndex = 1;
@@ -75,11 +75,13 @@ let speedPresetIndex = 1;
 let GRAVITY_DELAY = SPEED_PRESETS[speedPresetIndex].gravity;
 let DAS = SPEED_PRESETS[speedPresetIndex].das;
 let ARR = SPEED_PRESETS[speedPresetIndex].arr;
+let DCD = SPEED_PRESETS[speedPresetIndex].dcd;
+let SDF = SPEED_PRESETS[speedPresetIndex].sdf;
 let LOCK_DELAY = SPEED_PRESETS[speedPresetIndex].lock;
 
-let CUSTOM_SOFT_DROP_SPEED = Infinity; 
+let CUSTOM_SDF = Infinity;
 
-function normalizeSoftDropSpeed(value) {
+function normalizeSdf(value) {
   if (value === Infinity || value === "Infinity") return Infinity;
   const n = Number(value);
   if (!Number.isFinite(n)) return Infinity;
@@ -87,8 +89,9 @@ function normalizeSoftDropSpeed(value) {
 }
 
 function getSoftDropDelayMs() {
-  if (CUSTOM_SOFT_DROP_SPEED === Infinity) return 0;
-  return Math.max(1, Math.round(1000 / CUSTOM_SOFT_DROP_SPEED));
+  const sdf = getCurrentSdf();
+  if (sdf === Infinity) return 0;
+  return Math.max(1, Math.round(1000 / sdf));
 }
 
 function getCurrentDas() {
@@ -99,9 +102,18 @@ function getCurrentArr() {
   return (CUSTOM_ARR !== null && CUSTOM_ARR !== undefined) ? CUSTOM_ARR : ARR;
 }
 
-function setSoftDropSpeed(value) {
-  CUSTOM_SOFT_DROP_SPEED = normalizeSoftDropSpeed(value);
-  window.CUSTOM_SOFT_DROP_SPEED = CUSTOM_SOFT_DROP_SPEED;
+function getCurrentDcd() {
+  return (CUSTOM_DCD !== null && CUSTOM_DCD !== undefined) ? CUSTOM_DCD : DCD;
+}
+
+function getCurrentSdf() {
+  return (CUSTOM_SDF !== null && CUSTOM_SDF !== undefined) ? CUSTOM_SDF : SDF;
+}
+
+function setSdf(value) {
+  CUSTOM_SDF = normalizeSdf(value);
+  window.CUSTOM_SDF = CUSTOM_SDF;
+  window.CUSTOM_SOFT_DROP_SPEED = CUSTOM_SDF;
 }
 
 function applySpeedPreset() {
@@ -109,6 +121,8 @@ function applySpeedPreset() {
   GRAVITY_DELAY = preset.gravity;
   DAS = preset.das;
   ARR = preset.arr;
+  DCD = preset.dcd;
+  SDF = preset.sdf;
   LOCK_DELAY = preset.lock;
 
   
@@ -116,16 +130,19 @@ function applySpeedPreset() {
     if (solo) {
       solo.das = getCurrentDas();
       solo.arr = getCurrentArr();
+      solo.dcd = getCurrentDcd();
       solo.gravityDelay = GRAVITY_DELAY;
     }
     if (player) {
       player.das = getCurrentDas();
       player.arr = getCurrentArr();
+      player.dcd = getCurrentDcd();
       player.gravityDelay = GRAVITY_DELAY;
     }
     if (bot) {
       bot.das = getCurrentDas();
       bot.arr = getCurrentArr();
+      bot.dcd = getCurrentDcd();
       bot.gravityDelay = GRAVITY_DELAY;
     }
   } catch (e) {
@@ -136,27 +153,34 @@ function applySpeedPreset() {
 
 let CUSTOM_DAS = null; 
 let CUSTOM_ARR = null; 
+let CUSTOM_DCD = null;
 
 
-function setCustomPlayerSpeeds(dasMs, arrMs) {
+function setCustomPlayerSpeeds(dasMs, arrMs, dcdMs) {
   CUSTOM_DAS = (typeof dasMs === 'number') ? dasMs : CUSTOM_DAS;
   CUSTOM_ARR = (typeof arrMs === 'number') ? arrMs : CUSTOM_ARR;
+  CUSTOM_DCD = (typeof dcdMs === 'number') ? dcdMs : CUSTOM_DCD;
   const dasVal = getCurrentDas();
   const arrVal = getCurrentArr();
-  if (solo) { solo.das = dasVal; solo.arr = arrVal; }
-  if (player) { player.das = dasVal; player.arr = arrVal; }
-  if (bot) { bot.das = dasVal; bot.arr = arrVal; }
+  const dcdVal = getCurrentDcd();
+  if (solo) { solo.das = dasVal; solo.arr = arrVal; solo.dcd = dcdVal; }
+  if (player) { player.das = dasVal; player.arr = arrVal; player.dcd = dcdVal; }
+  if (bot) { bot.das = dasVal; bot.arr = arrVal; bot.dcd = dcdVal; }
   // mirror to window so UI can read the current values
   window.CUSTOM_DAS = CUSTOM_DAS;
   window.CUSTOM_ARR = CUSTOM_ARR;
+  window.CUSTOM_DCD = CUSTOM_DCD;
 }
 window.setCustomPlayerSpeeds = setCustomPlayerSpeeds;
-window.setSoftDropSpeed = setSoftDropSpeed;
+window.setSdf = setSdf;
+window.setSoftDropSpeed = setSdf;
 
 // expose current custom values on window for UI to read
 window.CUSTOM_DAS = CUSTOM_DAS;
 window.CUSTOM_ARR = CUSTOM_ARR;
-window.CUSTOM_SOFT_DROP_SPEED = CUSTOM_SOFT_DROP_SPEED;
+window.CUSTOM_DCD = CUSTOM_DCD;
+window.CUSTOM_SDF = CUSTOM_SDF;
+window.CUSTOM_SOFT_DROP_SPEED = CUSTOM_SDF;
 
 // Recalculate per-player speeds based on level (called when level/time changes)
 function recalcPlayerSpeeds(pState) {
@@ -178,27 +202,29 @@ let BOT_AGGRESSION = 0.5;
 
 function applyBotDifficulty() {
   if (botDifficulty === 0) {
-    BOT_MOVE_INTERVAL = 2.5;       
-    BOT_DROP_INTERVAL = 2.5;        
-    BOT_RETHINK_CHANCE = 0.05;      
-    BOT_HOLE_PENALTY = 8;          
-    BOT_PLACEMENT_ACCURACY = 0.6;   
-    BOT_AGGRESSION = 0.2;           
+    // EASY: very beatable for most players.
+    BOT_MOVE_INTERVAL = 0.95;
+    BOT_DROP_INTERVAL = 0.75;
+    BOT_RETHINK_CHANCE = 0.28;
+    BOT_HOLE_PENALTY = 9;
+    BOT_PLACEMENT_ACCURACY = 0.50;
+    BOT_AGGRESSION = 0.28;
   } else if (botDifficulty === 1) {
-    BOT_MOVE_INTERVAL = 1.0;        
-    BOT_DROP_INTERVAL = 1.0;       
-    BOT_RETHINK_CHANCE = 0.1;     
-    BOT_HOLE_PENALTY = 22;          
-    BOT_PLACEMENT_ACCURACY = 0.85;  
-    BOT_AGGRESSION = 0.5;           
+    // MEDIUM: pro-like and consistent, but not impossible.
+    BOT_MOVE_INTERVAL = 0.24;
+    BOT_DROP_INTERVAL = 0.18;
+    BOT_RETHINK_CHANCE = 0.05;
+    BOT_HOLE_PENALTY = 34;
+    BOT_PLACEMENT_ACCURACY = 0.93;
+    BOT_AGGRESSION = 0.74;
   } else if (botDifficulty === 2) {
-    // HARD: Fast, perfect placement, aggressive
-    BOT_MOVE_INTERVAL = 0.10;       //movement
-    BOT_DROP_INTERVAL = 0.10;       //drops
-    BOT_RETHINK_CHANCE = 0.0;       //strategy
-    BOT_HOLE_PENALTY = 60;          //penalty for holes
-    BOT_PLACEMENT_ACCURACY = 1.1;   // placement accuracy
-    BOT_AGGRESSION = 1.0;           // Aggressive 
+    // HARD: near-perfect and relentless.
+    BOT_MOVE_INTERVAL = 0.025;
+    BOT_DROP_INTERVAL = 0.02;
+    BOT_RETHINK_CHANCE = 0.0;
+    BOT_HOLE_PENALTY = 95;
+    BOT_PLACEMENT_ACCURACY = 1.0;
+    BOT_AGGRESSION = 1.0;
   } else {
     BOT_MOVE_INTERVAL = 1.0;
     BOT_DROP_INTERVAL = 1.0;
@@ -434,17 +460,22 @@ function createPlayerState() {
     // per-player timing overrides (allow personalized ARR/DAS/gravity)
     arr: getCurrentArr(),
     das: getCurrentDas(),
+    dcd: getCurrentDcd(),
     gravityDelay: GRAVITY_DELAY,
     score: 0,
     lines: 0,
     level: 1,
     combo: 0,
     b2b: 0,
+    lastAttack: 0,
+    lastAttackAt: 0,
     lastClearWasLine: false,
     lastMoveWasRotation: false,
     lastKickUsed: false,
     alive: true,
     garbageQueue: 0,
+    garbageHole: (Math.random() * COLS) | 0,
+    garbageFlashUntil: 0,
     _target: null,
     _targetPiece: null,
     _nextMove: NaN,
@@ -601,24 +632,47 @@ function clearLines(pState) {
 
   const tSpin = detectTSpin(pState, linesCleared);
   const b2bWas = pState.b2b;
-
-  const send = garbageForClear(linesCleared, tSpin, pState.combo, pState.b2b);
-  if (gameMode === "vsBot") {
-    if (pState === player) bot.garbageQueue += send;
-    else if (pState === bot) player.garbageQueue += send;
-  }
+  const difficultClear = (linesCleared === 4 || !!tSpin.type);
 
   if (linesCleared > 0) pState.combo++;
   else pState.combo = 0;
 
-  if (linesCleared > 0 && (linesCleared === 4 || tSpin.type)) {
+  if (linesCleared > 0 && difficultClear) {
     pState.b2b++;
   } else if (linesCleared > 0) {
     pState.b2b = 0;
   }
 
-  spawnClearPopup(pState, linesCleared, tSpin, b2bWas, pState.b2b);
-  return { linesCleared, tSpin };
+  const allClear = linesCleared > 0 && pState.board.every(row => row.every(cell => !cell));
+  const send = garbageForClear(linesCleared, tSpin, pState.combo, pState.b2b, allClear);
+  pState.lastAttack = send;
+  pState.lastAttackAt = performance.now();
+
+  if (gameMode === "vsBot" && send > 0) {
+    // Attack cancels your own pending garbage first, then sends the rest.
+    let outgoing = send;
+    if (pState.garbageQueue > 0) {
+      const canceled = Math.min(pState.garbageQueue, outgoing);
+      pState.garbageQueue -= canceled;
+      outgoing -= canceled;
+    }
+
+    let opponent = null;
+    if (pState === player) opponent = bot;
+    else if (pState === bot) opponent = player;
+
+    if (opponent && outgoing > 0) {
+      opponent.garbageQueue += outgoing;
+      opponent.garbageFlashUntil = performance.now() + 320;
+      spawnBadgePopup(opponent, "GAR", `+${outgoing}`, "#ff8a5c");
+    }
+  }
+
+  if (send > 0) spawnBadgePopup(pState, "ATK", `+${send}`, "#ff5f6d");
+  if (pState.b2b >= 2 && difficultClear) spawnBadgePopup(pState, "B2B", `x${pState.b2b}`, "#5cd3ff");
+
+  spawnClearPopup(pState, linesCleared, tSpin, b2bWas, pState.b2b, send, allClear);
+  return { linesCleared, tSpin, send, allClear };
 }
 
 function detectTSpin(pState, linesCleared) {
@@ -648,15 +702,16 @@ function detectTSpin(pState, linesCleared) {
   return { type: null, mini: false };
 }
 
-function garbageForClear(linesCleared, tSpin, combo, b2b) {
+function garbageForClear(linesCleared, tSpin, combo, b2b, allClear = false) {
   if (!linesCleared) return 0;
 
   let base = 0;
 
   if (tSpin.type === "TSPIN") {
     if (tSpin.mini) {
-      if (linesCleared === 1) base = 2;
-      else if (linesCleared === 2) base = 4;
+      // Closer to TETR.IO/Guideline feel: mini single is weak.
+      if (linesCleared === 1) base = 0;
+      else if (linesCleared === 2) base = 1;
     } else {
       if (linesCleared === 1) base = 2;
       else if (linesCleared === 2) base = 4;
@@ -669,10 +724,19 @@ function garbageForClear(linesCleared, tSpin, combo, b2b) {
     else if (linesCleared === 4) base = 4;
   }
 
-  if (b2b > 0 && (linesCleared === 4 || tSpin.type)) base += 1;
-  if (combo >= 2) base += Math.floor((combo - 1) / 2);
+  let b2bBonus = 0;
+  if (b2b >= 2 && (linesCleared === 4 || tSpin.type)) {
+    // Bonus starts on the second difficult clear in the chain.
+    b2bBonus = 1 + Math.min(2, Math.floor((b2b - 2) / 4));
+  }
 
-  return Math.max(0, base);
+  // REN/combo bonus table (ren = combo - 1), tuned toward TETR.IO-like pacing.
+  const ren = Math.max(0, combo - 1);
+  const comboTable = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5];
+  const comboBonus = (ren < comboTable.length) ? comboTable[ren] : 5;
+
+  const allClearBonus = allClear ? 10 : 0;
+  return Math.max(0, base + b2bBonus + comboBonus + allClearBonus);
 }
 
 function applyGarbage(pState) {
@@ -682,13 +746,22 @@ function applyGarbage(pState) {
 
   for (let i = 0; i < count; i++) {
     pState.board.shift();
-    const row = new Array(COLS).fill({ type: "G", color: currentTheme.garbageColor });
-    const hole = (Math.random() * COLS) | 0;
+    const intensity = Math.min(1, (pState.garbageQueue + i) / 16);
+    const red = Math.round(80 + intensity * 140);
+    const green = Math.round(40 + intensity * 60);
+    const blue = Math.round(40 + intensity * 40);
+    const row = new Array(COLS).fill({ type: "G", color: `rgb(${red},${green},${blue})` });
+
+    if (typeof pState.garbageHole !== "number") pState.garbageHole = (Math.random() * COLS) | 0;
+    if (Math.random() < 0.35) pState.garbageHole += (Math.random() < 0.5 ? -1 : 1);
+    pState.garbageHole = Math.max(0, Math.min(COLS - 1, pState.garbageHole));
+    const hole = pState.garbageHole;
     row[hole] = null;
     pState.board.push(row);
   }
 
   pState.garbageQueue -= count;
+  if (count > 0) spawnBadgePopup(pState, "GAR", `+${count}`, "#ff9f43");
 }
 
 function scoreAfterLock(pState, { linesCleared, tSpin }) {
@@ -725,9 +798,7 @@ function spawnPopup(pState, text, sub, x, y, color) {
   popups.push({ x, y, text, sub, color, t: 0, life: 900, owner: pState });
 }
 
-function spawnClearPopup(pState, lines, tSpin, oldB2B, newB2B) {
-  if (!lines && !tSpin.type && pState.combo <= 1) return;
-
+function popupAnchorForPlayer(pState) {
   const isVS = (gameMode === "vsBot");
   let boardX = SOLO_BOARD_X;
   let boardY = SOLO_BOARD_Y;
@@ -735,9 +806,44 @@ function spawnClearPopup(pState, lines, tSpin, oldB2B, newB2B) {
     boardX = (pState === player) ? VS_PLAYER_BOARD_X : VS_BOT_BOARD_X;
     boardY = VS_BOARD_Y;
   }
+  return {
+    boardX,
+    boardY,
+    centerX: boardX + COLS * BLOCK / 2,
+    centerY: boardY + 60
+  };
+}
 
-  const centerX = boardX + COLS * BLOCK / 2;
-  const centerY = boardY + 60;
+function spawnBadgePopup(pState, icon, value, color) {
+  const anchor = popupAnchorForPlayer(pState);
+  const order = popups.filter(p => p.owner === pState && p.kind === "badge").length;
+  const y = anchor.boardY + 22 + Math.min(4, order) * 24;
+  const iconMap = {
+    B2B: "⛓",
+    ATK: "⚔",
+    GAR: "🧱"
+  };
+  const iconGlyph = iconMap[icon] || "◆";
+  popups.push({
+    kind: "badge",
+    owner: pState,
+    x: anchor.boardX + COLS * BLOCK - 4,
+    y,
+    icon: iconGlyph,
+    label: String(icon || ""),
+    value: String(value || ""),
+    color: color || "#ffffff",
+    t: 0,
+    life: 700
+  });
+}
+
+function spawnClearPopup(pState, lines, tSpin, oldB2B, newB2B, sent = 0, allClear = false) {
+  if (!lines && !tSpin.type && pState.combo <= 1) return;
+
+  const anchor = popupAnchorForPlayer(pState);
+  const centerX = anchor.centerX;
+  const centerY = anchor.centerY;
 
   let main = "";
   let sub = "";
@@ -760,7 +866,9 @@ function spawnClearPopup(pState, lines, tSpin, oldB2B, newB2B) {
   }
 
   if (pState.combo >= 2) sub += `COMBO x${pState.combo} `;
-  if (newB2B > 0 && (lines === 4 || tSpin.type)) sub += `B2B x${newB2B}`;
+  if (newB2B > 0 && (lines === 4 || tSpin.type)) sub += `B2B x${newB2B} `;
+  if (sent > 0) sub += `+${sent} ATK `;
+  if (allClear) sub += "ALL CLEAR";
 
   if (!main && sub) { main = sub; sub = ""; }
 
@@ -781,6 +889,43 @@ function drawPopups() {
 
     ctx.save();
     ctx.globalAlpha = alpha;
+
+    if (p.kind === "badge") {
+      const lift = (p.t / p.life) * 16;
+      const pulse = 1 + (1 - p.t / p.life) * 0.08;
+      const w = 96;
+      const h = 22;
+      const x = p.x - w / 2;
+      const y = p.y - lift;
+
+      ctx.translate(p.x, y + h / 2);
+      ctx.scale(pulse, pulse);
+      ctx.translate(-p.x, -(y + h / 2));
+
+      ctx.fillStyle = "rgba(8,12,20,0.82)";
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = p.color || "#fff";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, w, h);
+
+      ctx.fillStyle = p.color || "#fff";
+      ctx.font = "bold 13px Arial";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(p.icon || "", x + 8, y + h / 2 + 0.5);
+
+      // Small label under icon keeps meaning clear while still icon-first.
+      ctx.fillStyle = "rgba(255,255,255,0.78)";
+      ctx.font = "bold 8px Arial";
+      ctx.fillText(p.label || "", x + 28, y + h / 2 + 0.5);
+
+      ctx.fillStyle = p.color || "#fff";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "right";
+      ctx.fillText(p.value || "", x + w - 8, y + h / 2 + 0.5);
+      ctx.restore();
+      continue;
+    }
 
     ctx.font = "24px Arial";
     ctx.textAlign = "center";
@@ -857,6 +1002,24 @@ function holdPiece(pState) {
   pState.canHold = false;
 }
 
+function beginHorizontalInput(pState, dir, switchedDirection = false) {
+  if (!pState || !dir) return;
+  const now = performance.now();
+  const localDAS = (typeof pState.das === 'number') ? pState.das : DAS;
+  const localDCD = (typeof pState.dcd === 'number') ? pState.dcd : DCD;
+
+  pState.dasDir = dir;
+  moveHoriz(pState, dir);
+  pState.arrTime = now;
+
+  if (switchedDirection) {
+    const preservedCharge = Math.max(0, Math.min(localDAS, localDCD));
+    pState.dasTime = now - preservedCharge;
+  } else {
+    pState.dasTime = now;
+  }
+}
+
 // Expose core functions used by other modules
 window.canvas = canvas;
 window.ctx = ctx;
@@ -874,6 +1037,7 @@ window.moveHoriz = moveHoriz;
 window.rotate = rotate;
 window.rotate180 = rotate180;
 window.holdPiece = holdPiece;
+window.beginHorizontalInput = beginHorizontalInput;
 window.createPlayerState = createPlayerState;
 window.clonePlayerState = clonePlayerState;
 window.pushUndoEveryAction = pushUndoEveryAction;
@@ -991,8 +1155,9 @@ function updatePlayer(pState, now) {
 
   const fallDelay = pState.gravityDelay || GRAVITY_DELAY;
   const softDropDelay = getSoftDropDelayMs();
+  const currentSdf = getCurrentSdf();
 
-  if (pState.softDropping && CUSTOM_SOFT_DROP_SPEED === Infinity) {
+  if (pState.softDropping && currentSdf === Infinity) {
     const dy = hardDropDistance(pState);
     if (dy > 0) {
       if (gameMode === "solo" && pState === solo) pushUndoEveryAction();
@@ -1024,12 +1189,12 @@ function handleHorizontalMovement(pState, now) {
 
   if (!pState.dasTime) {
     pState.dasTime = now;
-    moveHoriz(pState, pState.dasDir);
-    pState.arrTime = now;
     return;
   }
 
   if (now - pState.dasTime < localDAS) return;
+
+  if (!pState.arrTime) pState.arrTime = now;
 
   if (now - pState.arrTime >= localARR) {
     if (moveHoriz(pState, pState.dasDir)) {

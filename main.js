@@ -288,10 +288,12 @@ function gameLoop(timestamp) {
     if (gameMode === "solo") {
       if (!solo.piece) spawnPiece(solo);
 
-      if (cheatActive) {
-        updateBotPlayer(solo, now);
-      } else {
-        updatePlayer(solo, now);
+      if (gameState === "playing") {
+        if (cheatActive) {
+          updateBotPlayer(solo, now);
+        } else {
+          updatePlayer(solo, now);
+        }
       }
 
       drawSolo(timestamp);
@@ -300,13 +302,20 @@ function gameLoop(timestamp) {
       if (!player.piece) spawnPiece(player);
       if (!bot.piece) spawnPiece(bot);
 
-      if (cheatActive) {
-        updateBotPlayer(player, now);
-      } else {
-        updatePlayer(player, now);
+      // In VS, once someone tops out and gameState flips to gameover,
+      // stop all further updates immediately.
+      if (gameState === "playing") {
+        if (cheatActive) {
+          updateBotPlayer(player, now);
+        } else {
+          updatePlayer(player, now);
+        }
       }
 
-      updateBotPlayer(bot, now);
+      if (gameState === "playing") {
+        updateBotPlayer(bot, now);
+      }
+
       drawVS(timestamp);
       if (window.runVSEffects) runVSEffects();
     }
@@ -499,14 +508,10 @@ document.addEventListener("keydown", (e) => {
 
   if (action === "moveLeft") {
     keys.left = true;
-    pState.dasDir = -1;
-    pState.dasTime = 0;
-    pState.arrTime = 0;
+    beginHorizontalInput(pState, -1, pState.dasDir === 1);
   } else if (action === "moveRight") {
     keys.right = true;
-    pState.dasDir = 1;
-    pState.dasTime = 0;
-    pState.arrTime = 0;
+    beginHorizontalInput(pState, 1, pState.dasDir === -1);
   } else if (action === "softDrop") {
     keys.softDrop = true;
     pState.softDropping = true;
@@ -546,12 +551,24 @@ document.addEventListener("keyup", (e) => {
 
   if (action === "moveLeft") {
     keys.left = false;
-    if (pState.dasDir === -1) pState.dasDir = keys.right ? 1 : 0;
-    pState.dasTime = 0;
+    if (pState.dasDir === -1) {
+      if (keys.right) beginHorizontalInput(pState, 1, true);
+      else {
+        pState.dasDir = 0;
+        pState.dasTime = 0;
+        pState.arrTime = 0;
+      }
+    }
   } else if (action === "moveRight") {
     keys.right = false;
-    if (pState.dasDir === 1) pState.dasDir = keys.left ? -1 : 0;
-    pState.dasTime = 0;
+    if (pState.dasDir === 1) {
+      if (keys.left) beginHorizontalInput(pState, -1, true);
+      else {
+        pState.dasDir = 0;
+        pState.dasTime = 0;
+        pState.arrTime = 0;
+      }
+    }
   } else if (action === "softDrop") {
     keys.softDrop = false;
     pState.softDropping = false;
@@ -588,9 +605,16 @@ function handleOptionChange(dir) {
     if (cur === 0) cur = null;
     window.setCustomPlayerSpeeds(window.CUSTOM_DAS, cur);
   } else if (optionsSelection === 4) {
-    // Soft drop speed: 1..40 cells/s, then Infinity (instant drop)
-    let cur = window.CUSTOM_SOFT_DROP_SPEED;
-    if (cur === null || cur === undefined) cur = 25;
+    // Custom DCD (ms) - step 5ms, 0 -> Off (null)
+    let cur = window.CUSTOM_DCD;
+    if (cur === null || cur === undefined) cur = DCD;
+    cur = Math.max(0, cur + dir * 5);
+    if (cur === 0) cur = null;
+    window.setCustomPlayerSpeeds(window.CUSTOM_DAS, window.CUSTOM_ARR, cur);
+  } else if (optionsSelection === 5) {
+    // SDF: 1..40 cells/s, then Infinity (instant drop)
+    let cur = window.CUSTOM_SDF;
+    if (cur === null || cur === undefined) cur = SDF;
 
     if (dir > 0) {
       if (cur === Infinity) cur = 1;
@@ -602,12 +626,13 @@ function handleOptionChange(dir) {
       else cur -= 1;
     }
 
-    if (window.setSoftDropSpeed) window.setSoftDropSpeed(cur);
-  } else if (optionsSelection === 5) {
-    masterVolume = Math.min(1, Math.max(0, masterVolume + dir * 0.1));
+    if (window.setSdf) window.setSdf(cur);
+    else if (window.setSoftDropSpeed) window.setSoftDropSpeed(cur);
   } else if (optionsSelection === 6) {
-    showFPS = !showFPS;
+    masterVolume = Math.min(1, Math.max(0, masterVolume + dir * 0.1));
   } else if (optionsSelection === 7) {
+    showFPS = !showFPS;
+  } else if (optionsSelection === 8) {
     backgroundGlowEnabled = !backgroundGlowEnabled;
   }
 }
