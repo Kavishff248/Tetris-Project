@@ -19,7 +19,7 @@ const VS_BOT_BOARD_X = canvas.width - 260 - COLS * BLOCK;
 const VS_BOARD_Y = 120;
 
 // Game state
-let gameState = "menu";
+let gameState = "profileEntry";
 let gameMode = null;
 let botDifficultySelection = 1;
 
@@ -62,6 +62,11 @@ let topRightMenuButtons = [];
 let soloMenuButtonBounds = null;
 let soloRestartButtonBounds = null;
 let vsMenuButtonBounds = null;
+let optionRowBounds = [];
+let botDifficultyCardBounds = [];
+let controlItemBounds = [];
+let soloTypeCardBounds = [];
+let leaderboardBackButtonBounds = null;
 
 // Movement speed presets
 const SPEED_PRESETS = [
@@ -157,9 +162,12 @@ let CUSTOM_DCD = null;
 
 
 function setCustomPlayerSpeeds(dasMs, arrMs, dcdMs) {
-  CUSTOM_DAS = (typeof dasMs === 'number') ? dasMs : CUSTOM_DAS;
-  CUSTOM_ARR = (typeof arrMs === 'number') ? arrMs : CUSTOM_ARR;
-  CUSTOM_DCD = (typeof dcdMs === 'number') ? dcdMs : CUSTOM_DCD;
+  if (dasMs === null) CUSTOM_DAS = null;
+  else if (typeof dasMs === 'number') CUSTOM_DAS = dasMs;
+  if (arrMs === null) CUSTOM_ARR = null;
+  else if (typeof arrMs === 'number') CUSTOM_ARR = arrMs;
+  if (dcdMs === null) CUSTOM_DCD = null;
+  else if (typeof dcdMs === 'number') CUSTOM_DCD = dcdMs;
   const dasVal = getCurrentDas();
   const arrVal = getCurrentArr();
   const dcdVal = getCurrentDcd();
@@ -557,6 +565,33 @@ function canPlace(pState, px, py, rot) {
   return true;
 }
 
+function submitCompetitiveScoreAndOpenLeaderboard(score) {
+  const finalScore = Number(score) || 0;
+  const profileName = (window.getActiveProfileName && window.getActiveProfileName()) || "Player";
+
+  pendingScore = finalScore;
+  leaderboardLoaded = false;
+  leaderboardData = null;
+  gameState = "leaderboard";
+
+  (async () => {
+    try {
+      if (window.submitScore) await window.submitScore(profileName, finalScore, playerCountry);
+    } catch (e) {
+      // submitScore already handles offline queueing/errors.
+    }
+    try {
+      if (window.loadLeaderboard) {
+        const data = await window.loadLeaderboard();
+        leaderboardData = data;
+        leaderboardLoaded = true;
+      }
+    } catch (e) {
+      leaderboardLoaded = false;
+    }
+  })();
+}
+
 function spawnPiece(pState) {
   while (pState.queue.length < 6) {
     pState.queue.push(...randomBag());
@@ -576,9 +611,7 @@ function spawnPiece(pState) {
     pState.alive = false;
     if (gameMode === "solo") {
       if (window.soloType === 'competitive') {
-        gameState = "nameEntry";
-        pendingScore = pState.score;
-        tempName = "";
+        submitCompetitiveScoreAndOpenLeaderboard(pState.score);
       } else {
         // casual: go to gameover without prompting for leaderboard name
         gameState = "gameover";
@@ -990,9 +1023,11 @@ function holdPiece(pState) {
     if (!canPlace(pState, pState.pieceX, pState.pieceY, pState.rotation)) {
       pState.alive = false;
       if (gameMode === "solo") {
-        gameState = "nameEntry";
-        pendingScore = pState.score;
-        tempName = "";
+        if (window.soloType === 'competitive') {
+          submitCompetitiveScoreAndOpenLeaderboard(pState.score);
+        } else {
+          gameState = "gameover";
+        }
       } else {
         gameState = "gameover";
       }
@@ -1066,7 +1101,7 @@ const ACTIONS = [
 ];
 
 // Default keybindings
-let controlsConfig = {
+const DEFAULT_CONTROLS_CONFIG = {
   moveLeft: "ArrowLeft",
   moveRight: "ArrowRight",
   softDrop: "s",
@@ -1077,8 +1112,160 @@ let controlsConfig = {
   hold: "Shift",
   pause: "P",
   restart: "R",
-  undo: "Ctrl+z"
+  undo: "Ctrl+z",
+  redo: "Ctrl+y"
 };
+let controlsConfig = { ...DEFAULT_CONTROLS_CONFIG };
+
+const DEFAULT_SETTINGS = {
+  currentThemeKey: "regular",
+  speedPresetIndex: 1,
+  customDas: null,
+  customArr: null,
+  customDcd: null,
+  customSdf: Infinity,
+  masterVolume: 1.0,
+  showFPS: true
+};
+
+const SETTINGS_PROFILES_KEY = "tetris_profiles_v1";
+const SETTINGS_ACTIVE_PROFILE_KEY = "tetris_active_profile_v1";
+let activeProfileName = "Player";
+
+function normalizeProfileName(name) {
+  const s = String(name || "").trim();
+  return s ? s.slice(0, 24) : "Player";
+}
+
+function readSettingsProfiles() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_PROFILES_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return (parsed && typeof parsed === "object") ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeSettingsProfiles(profiles) {
+  try {
+    localStorage.setItem(SETTINGS_PROFILES_KEY, JSON.stringify(profiles || {}));
+  } catch (e) {
+    // Ignore storage write failures.
+  }
+}
+
+function collectCurrentSettings() {
+  return {
+    currentThemeKey,
+    speedPresetIndex,
+    customDas: (window.CUSTOM_DAS !== undefined) ? window.CUSTOM_DAS : CUSTOM_DAS,
+    customArr: (window.CUSTOM_ARR !== undefined) ? window.CUSTOM_ARR : CUSTOM_ARR,
+    customDcd: (window.CUSTOM_DCD !== undefined) ? window.CUSTOM_DCD : CUSTOM_DCD,
+    customSdf: (window.CUSTOM_SDF !== undefined) ? window.CUSTOM_SDF : CUSTOM_SDF,
+    masterVolume,
+    showFPS,
+    controlsConfig: { ...controlsConfig }
+  };
+}
+
+function applyDefaultSettings() {
+  const themeKey = THEMES[DEFAULT_SETTINGS.currentThemeKey] ? DEFAULT_SETTINGS.currentThemeKey : "regular";
+  currentThemeKey = themeKey;
+  currentTheme = THEMES[currentThemeKey];
+
+  const maxIdx = Math.max(0, SPEED_PRESETS.length - 1);
+  speedPresetIndex = Math.min(maxIdx, Math.max(0, DEFAULT_SETTINGS.speedPresetIndex));
+  applySpeedPreset();
+
+  masterVolume = DEFAULT_SETTINGS.masterVolume;
+  showFPS = DEFAULT_SETTINGS.showFPS;
+
+  controlsConfig = { ...DEFAULT_CONTROLS_CONFIG };
+  setCustomPlayerSpeeds(DEFAULT_SETTINGS.customDas, DEFAULT_SETTINGS.customArr, DEFAULT_SETTINGS.customDcd);
+  setSdf(DEFAULT_SETTINGS.customSdf);
+}
+
+function applySettingsObject(s) {
+  if (!s || typeof s !== "object") return;
+
+  if (s.currentThemeKey && THEMES[s.currentThemeKey]) {
+    currentThemeKey = s.currentThemeKey;
+    currentTheme = THEMES[currentThemeKey];
+  }
+
+  if (typeof s.speedPresetIndex === "number" && Number.isFinite(s.speedPresetIndex)) {
+    const maxIdx = Math.max(0, SPEED_PRESETS.length - 1);
+    speedPresetIndex = Math.min(maxIdx, Math.max(0, Math.round(s.speedPresetIndex)));
+    applySpeedPreset();
+  }
+
+  if (typeof s.masterVolume === "number" && Number.isFinite(s.masterVolume)) {
+    masterVolume = Math.min(1, Math.max(0, s.masterVolume));
+  }
+  if (typeof s.showFPS === "boolean") {
+    showFPS = s.showFPS;
+  }
+
+  if (s.controlsConfig && typeof s.controlsConfig === "object") {
+    controlsConfig = { ...DEFAULT_CONTROLS_CONFIG, ...s.controlsConfig };
+  }
+
+  setCustomPlayerSpeeds(
+    (s.customDas !== undefined) ? s.customDas : null,
+    (s.customArr !== undefined) ? s.customArr : null,
+    (s.customDcd !== undefined) ? s.customDcd : null
+  );
+  if (s.customSdf !== undefined && s.customSdf !== null) setSdf(s.customSdf);
+}
+
+function setActiveProfileName(name) {
+  activeProfileName = normalizeProfileName(name);
+  try {
+    localStorage.setItem(SETTINGS_ACTIVE_PROFILE_KEY, activeProfileName);
+  } catch (e) {
+    // Ignore storage write failures.
+  }
+  return activeProfileName;
+}
+
+function getActiveProfileName() {
+  return activeProfileName;
+}
+
+function saveSettingsForProfile(name) {
+  const profile = setActiveProfileName(name || activeProfileName);
+  const profiles = readSettingsProfiles();
+  profiles[profile] = collectCurrentSettings();
+  writeSettingsProfiles(profiles);
+}
+
+function loadSettingsForProfile(name) {
+  const profile = setActiveProfileName(name || activeProfileName);
+  const profiles = readSettingsProfiles();
+  const settings = profiles[profile];
+  applyDefaultSettings();
+  if (settings) {
+    applySettingsObject(settings);
+  } else {
+    // First-time profile: save true defaults for this name.
+    profiles[profile] = collectCurrentSettings();
+    writeSettingsProfiles(profiles);
+  }
+}
+
+try {
+  const stored = localStorage.getItem(SETTINGS_ACTIVE_PROFILE_KEY);
+  activeProfileName = normalizeProfileName(stored || "Player");
+} catch (e) {
+  activeProfileName = "Player";
+}
+tempName = activeProfileName;
+
+window.getActiveProfileName = getActiveProfileName;
+window.setActiveProfileName = setActiveProfileName;
+window.saveSettingsForProfile = saveSettingsForProfile;
+window.loadSettingsForProfile = loadSettingsForProfile;
 
 function describeKeyEvent(e) {
   let key = e.key;

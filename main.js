@@ -1,5 +1,8 @@
 window.addEventListener("DOMContentLoaded", () => {
   console.log("Main.js ready — Supabase leaderboard active");
+  if (window.loadSettingsForProfile && window.getActiveProfileName) {
+    window.loadSettingsForProfile(window.getActiveProfileName());
+  }
 });
 
 if (window.setupThemeOverlays) window.setupThemeOverlays();
@@ -255,7 +258,10 @@ function gameLoop(timestamp) {
   // Theme transition update
   updateThemeTransition(delta / 1000);
 
-  if (gameState === "menu") {
+  if (gameState === "profileEntry") {
+    if (window.drawProfileEntry) window.drawProfileEntry();
+
+  } else if (gameState === "menu") {
     drawMainMenu(timestamp);
 
   } else if (gameState === "options") {
@@ -330,9 +336,155 @@ function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
 }
 
+function pointInRect(px, py, r) {
+  return !!r && px >= r.x && py >= r.y && px <= r.x + r.w && py <= r.y + r.h;
+}
+
+function getMouseCanvasPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top) * scaleY
+  };
+}
+
+function findHit(bounds, x, y) {
+  if (!Array.isArray(bounds)) return null;
+  for (let i = 0; i < bounds.length; i++) {
+    if (pointInRect(x, y, bounds[i])) return bounds[i];
+  }
+  return null;
+}
+
+function handleCanvasMouseMove(e) {
+  const p = getMouseCanvasPos(e);
+  let hover = false;
+
+  if (gameState === "menu") {
+    const hit = findHit(topRightMenuButtons, p.x, p.y);
+    if (hit) {
+      menuSelection = hit.index;
+      hover = true;
+    }
+  } else if (gameState === "options") {
+    const hit = findHit(optionRowBounds, p.x, p.y);
+    if (hit) {
+      optionsSelection = hit.index;
+      hover = true;
+    }
+  } else if (gameState === "botDifficultySelect") {
+    const hit = findHit(botDifficultyCardBounds, p.x, p.y);
+    if (hit) {
+      botDifficultySelection = hit.index;
+      hover = true;
+    }
+  } else if (gameState === "controls") {
+    const hit = findHit(controlItemBounds, p.x, p.y);
+    if (hit) {
+      controlsSelection = hit.index;
+      hover = true;
+    }
+  } else if (gameState === "soloTypeSelect") {
+    const hit = findHit(soloTypeCardBounds, p.x, p.y);
+    if (hit) {
+      window.soloTypeSelection = hit.index;
+      hover = true;
+    }
+  } else if (gameState === "leaderboard") {
+    hover = pointInRect(p.x, p.y, leaderboardBackButtonBounds);
+  } else if (gameState === "playing" || gameState === "paused" || gameState === "gameover") {
+    const menuBtn = gameMode === "solo" ? soloMenuButtonBounds : vsMenuButtonBounds;
+    const onMenu = pointInRect(p.x, p.y, menuBtn);
+    const onRestart = pointInRect(p.x, p.y, soloRestartButtonBounds);
+    hover = onMenu || onRestart;
+  }
+
+  canvas.style.cursor = hover ? "pointer" : "default";
+}
+
+function handleCanvasClick(e) {
+  const p = getMouseCanvasPos(e);
+
+  if (gameState === "menu") {
+    const hit = findHit(topRightMenuButtons, p.x, p.y);
+    if (hit) {
+      menuSelection = hit.index;
+      handleMainMenuSelection();
+    }
+    return;
+  }
+
+  if (gameState === "options") {
+    const hit = findHit(optionRowBounds, p.x, p.y);
+    if (hit) {
+      optionsSelection = hit.index;
+      const dir = p.x < hit.x + hit.w / 2 ? -1 : 1;
+      handleOptionChange(dir);
+    }
+    return;
+  }
+
+  if (gameState === "botDifficultySelect") {
+    const hit = findHit(botDifficultyCardBounds, p.x, p.y);
+    if (hit) {
+      botDifficultySelection = hit.index;
+      botDifficulty = botDifficultySelection;
+      applyBotDifficulty();
+      startVSBot();
+    }
+    return;
+  }
+
+  if (gameState === "controls") {
+    const hit = findHit(controlItemBounds, p.x, p.y);
+    if (hit) {
+      controlsSelection = hit.index;
+      waitingForKeyBinding = ACTIONS[controlsSelection];
+    }
+    return;
+  }
+
+  if (gameState === "soloTypeSelect") {
+    const hit = findHit(soloTypeCardBounds, p.x, p.y);
+    if (hit) {
+      window.soloTypeSelection = hit.index;
+      startSolo(window.soloTypeSelection === 1 ? "casual" : "competitive");
+    }
+    return;
+  }
+
+  if (gameState === "leaderboard") {
+    if (pointInRect(p.x, p.y, leaderboardBackButtonBounds)) {
+      gameState = "menu";
+    }
+    return;
+  }
+
+  if (gameState === "playing" || gameState === "paused" || gameState === "gameover") {
+    const menuBtn = gameMode === "solo" ? soloMenuButtonBounds : vsMenuButtonBounds;
+    if (pointInRect(p.x, p.y, menuBtn)) {
+      gameState = "menu";
+      gameMode = null;
+      return;
+    }
+
+    if (gameMode === "solo" && window.soloType === "casual" && pointInRect(p.x, p.y, soloRestartButtonBounds)) {
+      startSolo("casual");
+    }
+  }
+}
+
+canvas.addEventListener("mousemove", handleCanvasMouseMove);
+canvas.addEventListener("click", handleCanvasClick);
+canvas.addEventListener("mouseleave", () => {
+  canvas.style.cursor = "default";
+});
+
 // Input handling (keeps original behavior but fixes option index bug and key binding)
 document.addEventListener("keydown", (e) => {
-  if (e.repeat) return;
+  if (e.repeat && !(gameState === "options" && (e.key === "ArrowLeft" || e.key === "ArrowRight"))) return;
 
   if (e.key === "Tab") {
     e.preventDefault();
@@ -350,10 +502,37 @@ document.addEventListener("keydown", (e) => {
     const desc = describeKeyEvent(e);
     controlsConfig[waitingForKeyBinding] = desc;
     waitingForKeyBinding = null;
+    if (window.saveSettingsForProfile && window.getActiveProfileName) {
+      window.saveSettingsForProfile(window.getActiveProfileName());
+    }
     return;
   }
 
   let pState = (gameMode === "solo") ? solo : player;
+
+  if (gameState === "profileEntry") {
+    if (e.key === "Enter") {
+      const finalName = tempName.trim();
+      if (!finalName) {
+        window.nameEntryInvalidUntil = Date.now() + 800;
+        return;
+      }
+      if (window.setActiveProfileName) window.setActiveProfileName(finalName);
+      if (window.loadSettingsForProfile && window.getActiveProfileName) {
+        window.loadSettingsForProfile(window.getActiveProfileName());
+      }
+      gameState = "menu";
+      return;
+    }
+    if (e.key === "Backspace") {
+      tempName = tempName.slice(0, -1);
+      return;
+    }
+    if (tempName.length < 12 && e.key.length === 1) {
+      tempName += e.key;
+    }
+    return;
+  }
 
   if (gameState === "menu") {
     if (e.key === "ArrowUp") {
@@ -439,6 +618,10 @@ document.addEventListener("keydown", (e) => {
       if (!finalName) {
         window.nameEntryInvalidUntil = Date.now() + 800;
         return;
+      }
+      if (window.setActiveProfileName) window.setActiveProfileName(finalName);
+      if (window.saveSettingsForProfile && window.getActiveProfileName) {
+        window.saveSettingsForProfile(window.getActiveProfileName());
       }
       if (window.submitScore) window.submitScore(finalName, pendingScore, playerCountry);
       gameState = "leaderboard";
@@ -632,8 +815,10 @@ function handleOptionChange(dir) {
     masterVolume = Math.min(1, Math.max(0, masterVolume + dir * 0.1));
   } else if (optionsSelection === 7) {
     showFPS = !showFPS;
-  } else if (optionsSelection === 8) {
-    backgroundGlowEnabled = !backgroundGlowEnabled;
+  }
+
+  if (window.saveSettingsForProfile && window.getActiveProfileName) {
+    window.saveSettingsForProfile(window.getActiveProfileName());
   }
 }
 

@@ -8,14 +8,27 @@
   box-sizing: border-box;
 }
 
+:root {
+  --bg-deep: #040612;
+  --bg-mid: #0a1126;
+  --bg-accent: #133a6f;
+  --shell-border: rgba(160, 220, 255, 0.24);
+  --shell-glow: rgba(77, 170, 255, 0.45);
+  --surface-top: rgba(20, 32, 58, 0.88);
+  --surface-bottom: rgba(7, 12, 28, 0.94);
+}
+
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
   width: 100%;
-  background: radial-gradient(circle at top, #050816 0%, #000 60%, #000 100%);
+  background:
+    radial-gradient(1200px 600px at 14% -6%, rgba(0, 209, 255, 0.16), transparent 60%),
+    radial-gradient(900px 520px at 88% 110%, rgba(80, 134, 255, 0.2), transparent 60%),
+    linear-gradient(135deg, var(--bg-deep), var(--bg-mid) 52%, #050913 100%);
   color: #fff;
-  font-family: Arial, sans-serif;
+  font-family: "Segoe UI", "Inter", "SF Pro Text", system-ui, -apple-system, sans-serif;
   overflow: hidden;
   display: flex;
   justify-content: center;
@@ -28,20 +41,34 @@ html, body {
 
 .game-wrapper {
   position: relative;
-  padding: 18px;
-  border-radius: 18px;
-  background: radial-gradient(circle at top, rgba(0,255,255,0.25), #000 70%);
+  padding: 20px;
+  border-radius: 22px;
+  background:
+    linear-gradient(150deg, var(--surface-top), var(--surface-bottom));
+  border: 1px solid var(--shell-border);
   box-shadow:
-    0 0 40px rgba(0,0,0,1),
-    0 0 60px rgba(0,200,255,0.35);
+    0 30px 60px rgba(0, 0, 0, 0.55),
+    0 0 50px var(--shell-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  isolation: isolate;
 }
 
 .game-wrapper::before {
   content: "";
   position: absolute;
-  inset: 4px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.07);
+  inset: 7px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  pointer-events: none;
+}
+
+.game-wrapper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  background: linear-gradient(120deg, rgba(255,255,255,0.14), transparent 24%, transparent 76%, rgba(144,219,255,0.08));
   pointer-events: none;
 }
 
@@ -51,12 +78,13 @@ html, body {
 
 #game {
   display: block;
-  background: #000;
+  background: #02050d;
   border-radius: 12px;
-  border: 2px solid #202020;
+  border: 1px solid rgba(170, 225, 255, 0.3);
   box-shadow:
     0 0 40px rgba(0,0,0,0.9),
-    0 0 24px rgba(0,200,255,0.45);
+    0 0 30px rgba(31,170,255,0.32),
+    inset 0 0 0 1px rgba(255,255,255,0.08);
 }
 
 /* ==========================

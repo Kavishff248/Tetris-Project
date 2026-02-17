@@ -1,4 +1,7 @@
 
+const UI_FONT = '"Segoe UI", "Inter", "SF Pro Text", system-ui, sans-serif';
+const UI_FONT_HEAVY = '"Segoe UI Black", "Arial Black", sans-serif';
+
 function drawBackgroundGradient() {
   const [c1, c2] = currentTheme.backgroundGradient;
   const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -6,6 +9,25 @@ function drawBackgroundGradient() {
   g.addColorStop(1, c2);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const glow = ctx.createRadialGradient(
+    canvas.width * 0.15,
+    canvas.height * 0.2,
+    40,
+    canvas.width * 0.15,
+    canvas.height * 0.2,
+    canvas.width * 0.9
+  );
+  glow.addColorStop(0, "rgba(120, 200, 255, 0.14)");
+  glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Subtle scanline effect for a cleaner "game client" look.
+  ctx.fillStyle = "rgba(255,255,255,0.015)";
+  for (let y = 0; y < canvas.height; y += 4) {
+    ctx.fillRect(0, y, canvas.width, 1);
+  }
 }
 
 // Helper: draw rounded rect
@@ -50,6 +72,22 @@ function hexToRgba(hex, alpha) {
   const g = (bigint >> 8) & 255;
   const b = bigint & 255;
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function drawGlassPanel(x, y, w, h, radius = 14, accent = currentTheme.glowColor) {
+  const panelGrad = ctx.createLinearGradient(x, y, x, y + h);
+  panelGrad.addColorStop(0, "rgba(255,255,255,0.09)");
+  panelGrad.addColorStop(1, "rgba(0,0,0,0.28)");
+  ctx.fillStyle = panelGrad;
+  roundRect(ctx, x, y, w, h, radius, true, false);
+
+  ctx.strokeStyle = hexToRgba(accent, 0.75);
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, x, y, w, h, radius, false, true);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1;
+  roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(4, radius - 2), false, true);
 }
 
 // Drawing helpers
@@ -117,6 +155,7 @@ function drawMiniPiece(type, cx, cy) {
 function drawBoard(pState, boardX, boardY, theme) {
   ctx.save();
 
+  drawGlassPanel(boardX - 6, boardY - 6, COLS * BLOCK + 12, VISIBLE_ROWS * BLOCK + 12, 10, theme.glowColor);
   ctx.fillStyle = theme.boardBg;
   ctx.fillRect(boardX, boardY, COLS * BLOCK, VISIBLE_ROWS * BLOCK);
 
@@ -206,7 +245,7 @@ function drawBoard(pState, boardX, boardY, theme) {
 
   if (incoming > 0) {
     ctx.fillStyle = flash ? "#ffd082" : "rgba(255,255,255,0.85)";
-    ctx.font = "bold 12px Arial";
+    ctx.font = `700 12px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.fillText(`${incoming}`, meterX + meterW / 2, meterY - 6);
   }
@@ -217,18 +256,12 @@ function drawBoard(pState, boardX, boardY, theme) {
 // Draw next and hold boxes
 function drawNext(pState, x, y) {
   ctx.save();
-  ctx.fillStyle = currentTheme.holdNextBg;
   const boxH = BLOCK * 10;
-  ctx.fillRect(x, y, BLOCK * 4, boxH);
-
-  ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 10;
-  ctx.strokeStyle = currentTheme.glowColor;
-  ctx.strokeRect(x, y, BLOCK * 4, boxH);
+  drawGlassPanel(x, y, BLOCK * 4, boxH, 10);
 
   ctx.shadowBlur = 0;
   ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "16px Arial";
+  ctx.font = `700 15px ${UI_FONT}`;
   ctx.textAlign = "center";
   ctx.fillText("NEXT", x + (BLOCK * 4) / 2, y - 6);
 
@@ -243,18 +276,12 @@ function drawNext(pState, x, y) {
 
 function drawHold(pState, x, y) {
   ctx.save();
-  ctx.fillStyle = currentTheme.holdNextBg;
   const boxH = BLOCK * 4.5;
-  ctx.fillRect(x, y, BLOCK * 4, boxH);
-
-  ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 10;
-  ctx.strokeStyle = currentTheme.glowColor;
-  ctx.strokeRect(x, y, BLOCK * 4, boxH);
+  drawGlassPanel(x, y, BLOCK * 4, boxH, 10);
 
   ctx.shadowBlur = 0;
   ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "16px Arial";
+  ctx.font = `700 15px ${UI_FONT}`;
   ctx.textAlign = "center";
   ctx.fillText("HOLD", x + (BLOCK * 4) / 2, y - 6);
 
@@ -271,7 +298,7 @@ function drawHUDSolo() {
   ctx.shadowColor = currentTheme.glowColor;
   ctx.shadowBlur = 10;
   ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "18px Arial";
+  ctx.font = `600 18px ${UI_FONT}`;
   ctx.textAlign = "left";
 
   ctx.fillText(`SCORE: ${solo.score}`, 40, 60);
@@ -292,13 +319,13 @@ function drawHUDVS() {
   ctx.shadowBlur = 12;
 
   ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "18px Arial";
+  ctx.font = `700 18px ${UI_FONT}`;
   ctx.textAlign = "center";
 
   ctx.fillText(`YOU`, VS_PLAYER_BOARD_X + (COLS * BLOCK) / 2, 80);
   ctx.fillText(`BOT`, VS_BOT_BOARD_X + (COLS * BLOCK) / 2, 80);
 
-  ctx.font = "16px Arial";
+  ctx.font = `600 16px ${UI_FONT}`;
   ctx.fillText(
     `Score: ${player.score}`,
     VS_PLAYER_BOARD_X + (COLS * BLOCK) / 2,
@@ -335,7 +362,7 @@ function drawMainMenu(time) {
 
   const pulse = 0.6 + 0.4 * Math.sin(t * 2.2);
 
-  ctx.font = "96px Arial Black";
+  ctx.font = `900 92px ${UI_FONT_HEAVY}`;
   ctx.shadowColor = theme.menuLogoShadow;
   ctx.shadowBlur = 32 * pulse;
   ctx.fillStyle = theme.menuLogoColor;
@@ -361,7 +388,7 @@ function drawMainMenu(time) {
 
   topRightMenuButtons = [];
 
-  ctx.font = "24px Arial";
+  ctx.font = `700 22px ${UI_FONT}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
 
@@ -383,7 +410,7 @@ function drawMainMenu(time) {
     roundRect(ctx, x, y, btnW, btnH, 12, true, false);
 
     ctx.fillStyle = '#fff';
-    ctx.font = isSelected ? '20px Arial Black' : '18px Arial';
+    ctx.font = isSelected ? `800 19px ${UI_FONT}` : `600 17px ${UI_FONT}`;
     ctx.textAlign = 'left';
     ctx.fillText(label, x + 26, y + btnH / 2 + (isSelected ? 2 : 0));
 
@@ -399,23 +426,18 @@ function drawMainMenu(time) {
   const bannerW = canvas.width * 0.7;
 
   ctx.save();
-  ctx.fillStyle = theme.menuBannerBg;
-  ctx.fillRect(bannerX, bannerY, bannerW, bannerH);
-
-  ctx.strokeStyle = theme.menuBannerAccent;
-  ctx.lineWidth = 3;
-  ctx.strokeRect(bannerX, bannerY, bannerW, bannerH);
+  drawGlassPanel(bannerX, bannerY, bannerW, bannerH, 14, theme.menuBannerAccent);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "20px Arial";
+  ctx.font = `600 18px ${UI_FONT}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillText("Also Available!", bannerX + 16, bannerY + 12);
 
-  ctx.font = "24px Arial Bold";
+  ctx.font = `800 24px ${UI_FONT}`;
   ctx.fillText("TETRIS+ Modes", bannerX + 16, bannerY + 40);
 
-  ctx.font = "16px Arial";
+  ctx.font = `500 15px ${UI_FONT}`;
   ctx.fillText(
     "Challenge the bot or play Solo with advanced themes and undo-powered practice.",
     bannerX + 16,
@@ -426,11 +448,11 @@ function drawMainMenu(time) {
 
   // Helper text
   ctx.save();
-  ctx.font = "16px Arial";
+  ctx.font = `500 15px ${UI_FONT}`;
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.fillText(
-    "UP/DOWN to move, ENTER to select, ESC to quit game",
+    "Use keyboard or mouse: UP/DOWN + ENTER, or click to select. ESC to quit game.",
     canvas.width / 2,
     canvas.height - 12
   );
@@ -443,154 +465,163 @@ async function drawLeaderboardScreen(time) {
 
   const t = time / 1000;
   const entries = leaderboardData || [];
+  leaderboardBackButtonBounds = null;
 
-  // TITLE
   ctx.save();
   ctx.textAlign = "center";
-  ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 20;
-  ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "52px Arial Black";
-  ctx.fillText("LEADERBOARD", canvas.width / 2, 90);
+  ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.8);
+  ctx.shadowBlur = 26;
+  ctx.fillStyle = "#f3fbff";
+  ctx.font = `900 58px ${UI_FONT_HEAVY}`;
+  ctx.fillText("GLOBAL LEADERBOARD", canvas.width / 2, 88);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(220,240,255,0.75)";
+  ctx.font = `600 14px ${UI_FONT}`;
+  ctx.fillText("Top pilots of the stack arena", canvas.width / 2, 114);
   ctx.restore();
 
-  // CONTAINER & ENTRIES
-  const containerX = canvas.width / 2 - 420;
-  const containerY = 150;
-  const containerW = 840;
-  const containerH = Math.min(entries.length * 56 + 80, 600);
+  const containerX = canvas.width / 2 - 470;
+  const containerY = 140;
+  const containerW = 940;
+  const containerH = 560;
+  const panelPulse = 0.65 + 0.35 * Math.sin(t * 1.8);
 
-  // Modern container background
   ctx.save();
-  ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 25;
+  ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.75 * panelPulse);
+  ctx.shadowBlur = 34;
   const containerGrad = ctx.createLinearGradient(containerX, containerY, containerX, containerY + containerH);
-  containerGrad.addColorStop(0, "rgba(100,150,255,0.08)");
-  containerGrad.addColorStop(0.5, "rgba(100,150,255,0.03)");
-  containerGrad.addColorStop(1, "rgba(100,150,255,0.08)");
+  containerGrad.addColorStop(0, "rgba(18,40,72,0.85)");
+  containerGrad.addColorStop(0.5, "rgba(7,17,35,0.9)");
+  containerGrad.addColorStop(1, "rgba(16,34,64,0.85)");
   ctx.fillStyle = containerGrad;
   roundRect(ctx, containerX, containerY, containerW, containerH, 16, true, false);
-
-  // Border
-  ctx.strokeStyle = currentTheme.glowColor;
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = hexToRgba(currentTheme.glowColor, 0.9);
+  ctx.lineWidth = 2.2;
   roundRect(ctx, containerX, containerY, containerW, containerH, 16, false, true);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1;
+  roundRect(ctx, containerX + 3, containerY + 3, containerW - 6, containerH - 6, 13, false, true);
   ctx.restore();
 
-  // HEADER ROW
   ctx.save();
-  const headerY = containerY + 25;
-  ctx.font = "bold 16px Arial";
-  ctx.fillStyle = currentTheme.glowColor;
+  const headerY = containerY + 42;
+  ctx.font = `700 15px ${UI_FONT}`;
+  ctx.fillStyle = "rgba(180,220,255,0.92)";
   ctx.textAlign = "left";
-  ctx.fillText("#", containerX + 20, headerY);
-  ctx.fillText("NAME", containerX + 70, headerY);
-  ctx.fillText("SCORE", containerX + 460, headerY);
-  ctx.fillText("COUNTRY", containerX + 650, headerY);
+  ctx.fillText("RANK", containerX + 34, headerY);
+  ctx.fillText("PLAYER", containerX + 128, headerY);
+  ctx.fillText("SCORE", containerX + 572, headerY);
+  ctx.fillText("COUNTRY", containerX + 760, headerY);
   ctx.restore();
 
-  // Separator line
   ctx.save();
-  ctx.strokeStyle = `rgba(${currentTheme.glowColor ? currentTheme.glowColor : '#fff'},0.2)`;
+  ctx.strokeStyle = hexToRgba(currentTheme.glowColor || "#ffffff", 0.3);
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(containerX + 15, headerY + 8);
-  ctx.lineTo(containerX + containerW - 15, headerY + 8);
+  ctx.moveTo(containerX + 18, headerY + 14);
+  ctx.lineTo(containerX + containerW - 18, headerY + 14);
   ctx.stroke();
   ctx.restore();
 
-  // ENTRIES
   ctx.save();
-  let entryY = headerY + 32;
+  const rowH = 30;
+  let entryY = headerY + 36;
   entries.slice(0, 15).forEach((e, idx) => {
     const rank = idx + 1;
     const isMedal = rank <= 3;
-    
-    // Row background with gradient
-    if (idx % 2 === 0) {
-      const rowGrad = ctx.createLinearGradient(containerX + 10, entryY - 20, containerX + 10, entryY + 20);
-      rowGrad.addColorStop(0, "rgba(255,255,255,0.02)");
-      rowGrad.addColorStop(1, "rgba(255,255,255,0.00)");
-      ctx.fillStyle = rowGrad;
-      ctx.fillRect(containerX + 10, entryY - 22, containerW - 20, 48);
-    }
+    const rowY = entryY - rowH / 2;
+    const rowGrad = ctx.createLinearGradient(containerX + 16, rowY, containerX + 16, rowY + rowH);
+    rowGrad.addColorStop(0, idx % 2 === 0 ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.015)");
+    rowGrad.addColorStop(1, "rgba(255,255,255,0.0)");
+    ctx.fillStyle = rowGrad;
+    roundRect(ctx, containerX + 16, rowY, containerW - 32, rowH, 8, true, false);
 
-    // Glow for top 3
     if (isMedal) {
       const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
       ctx.shadowColor = medalColors[rank - 1];
       ctx.shadowBlur = 12;
     } else {
       ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
     }
 
-    // RANK BADGE
-    const rankBadgeX = containerX + 35;
-    const rankBadgeRadius = 14;
-    
+    const rankBadgeX = containerX + 62;
+    const rankBadgeRadius = 12;
     if (isMedal) {
       const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
-      const medalBg = ["rgba(255,215,0,0.15)", "rgba(192,192,192,0.15)", "rgba(205,127,50,0.15)"];
+      const medalBg = ["rgba(255,215,0,0.2)", "rgba(192,192,192,0.2)", "rgba(205,127,50,0.2)"];
       ctx.fillStyle = medalBg[rank - 1];
       ctx.beginPath();
       ctx.arc(rankBadgeX, entryY, rankBadgeRadius, 0, Math.PI * 2);
       ctx.fill();
-      
       ctx.fillStyle = medalColors[rank - 1];
-      ctx.font = "bold 18px Arial";
+      ctx.font = `700 12px ${UI_FONT}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const medals = ["🥇", "🥈", "🥉"];
+      const medals = ["1st", "2nd", "3rd"];
       ctx.fillText(medals[rank - 1], rankBadgeX, entryY + 1);
     } else {
-      ctx.fillStyle = "rgba(100,150,255,0.3)";
+      ctx.fillStyle = "rgba(93,156,255,0.28)";
       ctx.beginPath();
       ctx.arc(rankBadgeX, entryY, rankBadgeRadius, 0, Math.PI * 2);
       ctx.fill();
-      
-      ctx.strokeStyle = "rgba(100,150,255,0.5)";
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "rgba(130,190,255,0.45)";
+      ctx.lineWidth = 1;
       ctx.stroke();
-      
       ctx.fillStyle = "rgba(255,255,255,0.8)";
-      ctx.font = "bold 14px Arial";
+      ctx.font = `700 12px ${UI_FONT}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(rank, rankBadgeX, entryY);
     }
 
-    // NAME
-    ctx.fillStyle = isMedal ? "#FFD700" : "#ffffff";
-    ctx.font = isMedal ? "bold 18px Arial" : "18px Arial";
+    ctx.fillStyle = isMedal ? "#ffe08a" : "#f2f8ff";
+    ctx.font = isMedal ? `700 18px ${UI_FONT}` : `600 17px ${UI_FONT}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText((e.name || "Player").substring(0, 20), containerX + 70, entryY);
+    ctx.fillText((e.name || "Player").substring(0, 20), containerX + 128, entryY);
 
-    // SCORE - right aligned
-    ctx.fillStyle = isMedal ? "#FFD700" : "rgba(150,200,255,0.95)";
-    ctx.font = isMedal ? "bold 20px Arial Black" : "bold 18px Arial";
+    ctx.fillStyle = isMedal ? "#ffd66b" : "rgba(178,222,255,0.95)";
+    ctx.font = isMedal ? `800 19px ${UI_FONT_HEAVY}` : `700 18px ${UI_FONT}`;
     ctx.textAlign = "right";
-    ctx.fillText((e.score || 0).toLocaleString(), containerX + 550, entryY);
+    ctx.fillText((e.score || 0).toLocaleString(), containerX + 690, entryY);
 
-    // COUNTRY
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.font = "14px Arial";
+    ctx.fillStyle = "rgba(235,245,255,0.8)";
+    ctx.font = `600 14px ${UI_FONT}`;
     ctx.textAlign = "left";
-    ctx.fillText(e.country || "N/A", containerX + 650, entryY);
+    ctx.fillText(e.country || "N/A", containerX + 760, entryY);
 
-    entryY += 56;
+    entryY += 34;
   });
-
   ctx.restore();
 
-  // FOOTER TEXT
+  const backW = 210;
+  const backH = 38;
+  const backX = canvas.width / 2 - backW / 2;
+  const backY = containerY + containerH + 20;
+  leaderboardBackButtonBounds = { x: backX, y: backY, w: backW, h: backH };
+
+  ctx.save();
+  const backGrad = ctx.createLinearGradient(backX, backY, backX, backY + backH);
+  backGrad.addColorStop(0, "rgba(100,170,255,0.26)");
+  backGrad.addColorStop(1, "rgba(40,90,170,0.26)");
+  ctx.fillStyle = backGrad;
+  roundRect(ctx, backX, backY, backW, backH, 10, true, false);
+  ctx.strokeStyle = hexToRgba(currentTheme.glowColor, 0.7);
+  ctx.lineWidth = 1.4;
+  roundRect(ctx, backX, backY, backW, backH, 10, false, true);
+  ctx.fillStyle = "#e9f6ff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 14px ${UI_FONT}`;
+  ctx.fillText("BACK TO MENU", backX + backW / 2, backY + backH / 2 + 1);
+  ctx.restore();
+
   ctx.save();
   ctx.textAlign = "center";
-  ctx.font = "16px Arial";
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
-  ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.shadowBlur = 5;
-  ctx.fillText("↑ ↓ Navigate | ESC to Return", canvas.width / 2, canvas.height - 50);
+  ctx.font = `500 14px ${UI_FONT}`;
+  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.fillText("Arrow keys still work. Mouse click is enabled for fast selection.", canvas.width / 2, canvas.height - 24);
   ctx.restore();
 }
 
@@ -599,15 +630,20 @@ function drawOptions(time) {
   drawBackgroundGradient();
 
   const t = time / 1000;
+  const pulse = 0.75 + 0.25 * Math.sin(t * 2.4);
 
   ctx.save();
   ctx.textAlign = "center";
 
-  ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 20;
-  ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "52px Arial Black";
-  ctx.fillText("OPTIONS", canvas.width / 2, 90);
+  ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.85);
+  ctx.shadowBlur = 28;
+  ctx.fillStyle = "#f0faff";
+  ctx.font = `900 54px ${UI_FONT_HEAVY}`;
+  ctx.fillText("SETTINGS", canvas.width / 2, 88);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(220,240,255,0.72)";
+  ctx.font = `600 14px ${UI_FONT}`;
+  ctx.fillText("Tune visuals, movement, and feel", canvas.width / 2, 114);
 
   const rows = [
     `Theme: ${THEMES[currentThemeKey].name}`,
@@ -617,85 +653,132 @@ function drawOptions(time) {
     `Custom DCD: ${window.CUSTOM_DCD !== null && window.CUSTOM_DCD !== undefined ? window.CUSTOM_DCD + ' ms' : 'Off'}`,
     `SDF: ${window.CUSTOM_SDF === Infinity ? 'Infinity' : (window.CUSTOM_SDF || 25)}`,
     `Volume: ${(masterVolume * 100) | 0}%`,
-    `FPS Display: ${showFPS ? "On" : "Off"}`,
-    `Background Glow: ${backgroundGlowEnabled ? "On" : "Off"}`
+    `FPS Display: ${showFPS ? "On" : "Off"}`
   ];
+  optionRowBounds = [];
 
-  // Container
-  const containerX = canvas.width / 2 - 380;
-  const containerY = 160;
-  const containerW = 760;
+  const containerX = canvas.width / 2 - 430;
+  const containerY = 146;
+  const containerW = 860;
   const optionH = 56;
-  const containerH = rows.length * optionH + 40;
+  const containerH = rows.length * optionH + 56;
 
-  // Modern container background
-  ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 25;
+  ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.75 * pulse);
+  ctx.shadowBlur = 32;
   const containerGrad = ctx.createLinearGradient(containerX, containerY, containerX, containerY + containerH);
-  containerGrad.addColorStop(0, "rgba(100,150,255,0.08)");
-  containerGrad.addColorStop(0.5, "rgba(100,150,255,0.03)");
-  containerGrad.addColorStop(1, "rgba(100,150,255,0.08)");
+  containerGrad.addColorStop(0, "rgba(17,37,68,0.9)");
+  containerGrad.addColorStop(0.52, "rgba(8,17,34,0.93)");
+  containerGrad.addColorStop(1, "rgba(16,34,62,0.9)");
   ctx.fillStyle = containerGrad;
-  roundRect(ctx, containerX, containerY, containerW, containerH, 16, true, false);
+  roundRect(ctx, containerX, containerY, containerW, containerH, 18, true, false);
 
-  // Border
-  ctx.strokeStyle = currentTheme.glowColor;
+  ctx.strokeStyle = hexToRgba(currentTheme.glowColor, 0.88);
   ctx.lineWidth = 2;
-  roundRect(ctx, containerX, containerY, containerW, containerH, 16, false, true);
+  roundRect(ctx, containerX, containerY, containerW, containerH, 18, false, true);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1;
+  roundRect(ctx, containerX + 3, containerY + 3, containerW - 6, containerH - 6, 15, false, true);
+
+  const headH = 40;
+  const headGrad = ctx.createLinearGradient(containerX + 10, containerY + 10, containerX + 10, containerY + 10 + headH);
+  headGrad.addColorStop(0, "rgba(255,255,255,0.08)");
+  headGrad.addColorStop(1, "rgba(255,255,255,0.02)");
+  ctx.fillStyle = headGrad;
+  roundRect(ctx, containerX + 10, containerY + 10, containerW - 20, headH, 10, true, false);
+  ctx.fillStyle = "rgba(180,220,255,0.92)";
+  ctx.font = `700 14px ${UI_FONT}`;
+  ctx.textAlign = "left";
+  ctx.fillText("PROFILE", containerX + 26, containerY + 35);
+  ctx.textAlign = "right";
+  ctx.fillStyle = "rgba(222,242,255,0.85)";
+  ctx.fillText(THEMES[currentThemeKey].name.toUpperCase(), containerX + containerW - 26, containerY + 35);
   ctx.restore();
 
-  // Options
   ctx.save();
   rows.forEach((label, i) => {
-    const y = containerY + 30 + i * optionH;
+    const y = containerY + 72 + i * optionH;
     const selected = (i === optionsSelection);
+    const rowX = containerX + 16;
+    const rowW = containerW - 32;
+    const rowY = y - 24;
+    const rowR = 10;
+    const [nameRaw, ...valueParts] = label.split(": ");
+    const optName = nameRaw || label;
+    const optValue = valueParts.join(": ");
 
-    // Row background
+    const rowGrad = ctx.createLinearGradient(rowX, rowY, rowX, rowY + optionH);
     if (selected) {
-      const rowGrad = ctx.createLinearGradient(containerX + 10, y - 24, containerX + 10, y + 24);
-      rowGrad.addColorStop(0, "rgba(100,150,255,0.12)");
-      rowGrad.addColorStop(1, "rgba(100,150,255,0.03)");
+      rowGrad.addColorStop(0, "rgba(89,155,255,0.22)");
+      rowGrad.addColorStop(0.6, "rgba(60,110,220,0.12)");
+      rowGrad.addColorStop(1, "rgba(40,80,170,0.16)");
       ctx.fillStyle = rowGrad;
-      ctx.fillRect(containerX + 10, y - 24, containerW - 20, optionH);
+      roundRect(ctx, rowX, rowY, rowW, optionH, rowR, true, false);
 
-      // Selection border
-      ctx.strokeStyle = currentTheme.glowColor;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(containerX + 10, y - 24, containerW - 20, optionH);
+      ctx.strokeStyle = hexToRgba(currentTheme.glowColor, 0.95);
+      ctx.lineWidth = 2.2;
+      roundRect(ctx, rowX, rowY, rowW, optionH, rowR, false, true);
+      ctx.fillStyle = "rgba(170,220,255,0.95)";
+      ctx.fillRect(rowX + 10, rowY + 8, 4, optionH - 16);
     } else if (i % 2 === 0) {
-      ctx.fillStyle = "rgba(255,255,255,0.02)";
-      ctx.fillRect(containerX + 10, y - 24, containerW - 20, optionH);
+      rowGrad.addColorStop(0, "rgba(255,255,255,0.045)");
+      rowGrad.addColorStop(1, "rgba(255,255,255,0.01)");
+      ctx.fillStyle = rowGrad;
+      roundRect(ctx, rowX, rowY, rowW, optionH, rowR, true, false);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.015)";
+      roundRect(ctx, rowX, rowY, rowW, optionH, rowR, true, false);
     }
 
-    // Label
-    ctx.fillStyle = selected ? currentTheme.hudTextColor : "rgba(255,255,255,0.85)";
-    ctx.font = selected ? "bold 18px Arial" : "18px Arial";
+    optionRowBounds.push({
+      x: rowX,
+      y: rowY,
+      w: rowW,
+      h: optionH,
+      index: i
+    });
+
+    ctx.fillStyle = selected ? "#f4fbff" : "rgba(232,245,255,0.9)";
+    ctx.font = selected ? `700 17px ${UI_FONT}` : `600 16px ${UI_FONT}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, containerX + 40, y + 2);
+    ctx.fillText(optName, rowX + 24, y + 2);
 
-    // Arrow indicator for selected
+    const chipW = Math.max(84, Math.min(220, ctx.measureText(optValue || "").width + 30));
+    const chipX = rowX + rowW - chipW - 56;
+    const chipY = y - 16;
+    const chipGrad = ctx.createLinearGradient(chipX, chipY, chipX, chipY + 32);
+    chipGrad.addColorStop(0, selected ? "rgba(132,207,255,0.28)" : "rgba(130,180,240,0.15)");
+    chipGrad.addColorStop(1, selected ? "rgba(85,145,236,0.26)" : "rgba(80,120,190,0.12)");
+    ctx.fillStyle = chipGrad;
+    roundRect(ctx, chipX, chipY, chipW, 32, 8, true, false);
+    ctx.strokeStyle = selected ? "rgba(180,230,255,0.72)" : "rgba(170,210,255,0.35)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, chipX, chipY, chipW, 32, 8, false, true);
+    ctx.fillStyle = selected ? "#e9f8ff" : "rgba(224,242,255,0.84)";
+    ctx.font = selected ? `700 14px ${UI_FONT}` : `600 13px ${UI_FONT}`;
+    ctx.textAlign = "center";
+    ctx.fillText(optValue || "", chipX + chipW / 2, y + 2);
+
     if (selected) {
-      ctx.fillStyle = currentTheme.glowColor;
-      ctx.font = "bold 20px Arial";
-      ctx.textAlign = "right";
-      ctx.fillText("◄ ►", containerX + containerW - 40, y + 2);
+      ctx.fillStyle = "#b8e8ff";
+      ctx.font = `700 18px ${UI_FONT}`;
+      ctx.textAlign = "center";
+      ctx.fillText("<", rowX + rowW - 36, y + 2);
+      ctx.fillText(">", rowX + rowW - 18, y + 2);
     }
   });
 
   ctx.restore();
 
-  // expose option count so main.js can use it for navigation
   window.getOptionsCount = () => rows.length;
 
-  // Instructions
   ctx.save();
-  ctx.font = "14px Arial";
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.font = `500 14px ${UI_FONT}`;
+  ctx.fillStyle = "rgba(225,241,255,0.72)";
   ctx.textAlign = "center";
   ctx.shadowColor = "rgba(0,0,0,0.5)";
   ctx.shadowBlur = 5;
-  ctx.fillText("← → to change | ↑ ↓ to navigate | ESC to return", canvas.width / 2, canvas.height - 50);
+  ctx.fillText("Mouse click or keyboard: LEFT/RIGHT adjust, UP/DOWN navigate, ESC return", canvas.width / 2, canvas.height - 50);
   ctx.restore();
 }
 
@@ -710,10 +793,10 @@ function drawBotDifficultySelect(time) {
   ctx.shadowColor = currentTheme.glowColor;
   ctx.shadowBlur = 20;
   ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "52px Arial Black";
+  ctx.font = `900 50px ${UI_FONT_HEAVY}`;
   ctx.fillText("SELECT BOT DIFFICULTY", canvas.width / 2, 90);
 
-  ctx.font = "14px Arial";
+  ctx.font = `500 14px ${UI_FONT}`;
   ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.shadowBlur = 0;
   ctx.fillText("Choose your opponent's skill level", canvas.width / 2, 125);
@@ -724,6 +807,7 @@ function drawBotDifficultySelect(time) {
     { label: "NORMAL", desc: "Balanced challenge", level: 2, color: "#FFD700" },
     { label: "HARD", desc: "Expert difficulty", level: 3, color: "#FF6B6B" }
   ];
+  botDifficultyCardBounds = [];
 
   difficulties.forEach((diff, i) => {
     const x = canvas.width / 2 - 320 + i * 320;
@@ -732,6 +816,13 @@ function drawBotDifficultySelect(time) {
 
     const cardW = 240;
     const cardH = 260;
+    botDifficultyCardBounds.push({
+      x: x - cardW / 2,
+      y: y - cardH / 2,
+      w: cardW,
+      h: cardH,
+      index: i
+    });
 
     // Card background with gradient
     ctx.save();
@@ -887,7 +978,7 @@ function drawBotDifficultySelect(time) {
   ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.shadowColor = "rgba(0,0,0,0.5)";
   ctx.shadowBlur = 5;
-  ctx.fillText("← → to select | ENTER to start | ESC to cancel", canvas.width / 2, canvas.height - 50);
+  ctx.fillText("Mouse click or keyboard: LEFT/RIGHT select, ENTER start, ESC cancel", canvas.width / 2, canvas.height - 50);
   ctx.restore();
 }
 
@@ -898,81 +989,87 @@ function drawControlsMenu(time) {
   ctx.textAlign = "center";
 
   const t = time / 1000;
+  const pulse = 0.72 + 0.28 * Math.sin(t * 2.1);
 
-  // Title with glow
-  ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 20;
-  ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = "bold 52px Arial";
-  ctx.fillText("CONTROL SETTINGS", canvas.width / 2, 70);
+  ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.85);
+  ctx.shadowBlur = 28;
+  ctx.fillStyle = "#f1fbff";
+  ctx.font = `900 52px ${UI_FONT_HEAVY}`;
+  ctx.fillText("CONTROLS", canvas.width / 2, 72);
 
-  // Subtitle
-  ctx.font = "14px Arial";
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.font = `600 14px ${UI_FONT}`;
+  ctx.fillStyle = "rgba(220,240,255,0.74)";
   ctx.shadowBlur = 0;
-  ctx.fillText("Select a control and press ENTER to rebind", canvas.width / 2, 105);
+  ctx.fillText("Rebind keys with keyboard or click a row and press any key", canvas.width / 2, 104);
 
   const actionLabels = {
-    moveLeft: "← Move Left",
-    moveRight: "Move Right →",
-    softDrop: "↓ Soft Drop",
-    hardDrop: "⬆ Hard Drop",
-    rotateCW: "↻ Rotate CW",
-    rotateCCW: "↺ Rotate CCW",
-    reverseSpin: "⤴ Rotate 180",
-    hold: "⊡ Hold Piece",
-    pause: "⏸ Pause",
-    restart: "↺ Restart",
-    undo: "↶ Undo"
+    moveLeft: "Move Left",
+    moveRight: "Move Right",
+    softDrop: "Soft Drop",
+    hardDrop: "Hard Drop",
+    rotateCW: "Rotate Clockwise",
+    rotateCCW: "Rotate Counter-Clockwise",
+    reverseSpin: "Rotate 180",
+    hold: "Hold Piece",
+    pause: "Pause",
+    restart: "Restart",
+    undo: "Undo",
+    redo: "Redo"
   };
 
-  // Group controls by category
   const groups = [
     { title: "MOVEMENT", actions: ["moveLeft", "moveRight", "softDrop", "hardDrop"] },
     { title: "ROTATION", actions: ["rotateCW", "rotateCCW", "reverseSpin"] },
-    { title: "UTILITY", actions: ["hold", "pause", "restart", "undo"] }
+    { title: "UTILITY", actions: ["hold", "pause", "restart", "undo", "redo"] }
   ];
 
   let itemIndex = 0;
-  let currentY = 155;
+  let currentY = 152;
+  controlItemBounds = [];
 
-  groups.forEach((group, groupIdx) => {
-    // Container for group
+  groups.forEach((group) => {
     const itemsInGroup = group.actions.filter(action => action in actionLabels);
     const rows = Math.ceil(itemsInGroup.length / 2);
-    const groupContainerH = rows * 56 + 45;
-    
+    const groupContainerH = rows * 58 + 48;
+
     const groupX = canvas.width / 2 - 500;
     const groupY = currentY - 15;
     const groupW = 1000;
 
-    // Group container background
     ctx.save();
-    ctx.shadowColor = currentTheme.glowColor;
-    ctx.shadowBlur = 15;
+    ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.6 * pulse);
+    ctx.shadowBlur = 18;
     const groupGrad = ctx.createLinearGradient(groupX, groupY, groupX, groupY + groupContainerH);
-    groupGrad.addColorStop(0, "rgba(100,150,255,0.05)");
-    groupGrad.addColorStop(1, "rgba(100,150,255,0.02)");
+    groupGrad.addColorStop(0, "rgba(18,38,70,0.72)");
+    groupGrad.addColorStop(1, "rgba(8,17,34,0.72)");
     ctx.fillStyle = groupGrad;
-    roundRect(ctx, groupX, groupY, groupW, groupContainerH, 12, true, false);
+    roundRect(ctx, groupX, groupY, groupW, groupContainerH, 14, true, false);
 
-    // Border
-    ctx.strokeStyle = "rgba(100,150,255,0.3)";
+    ctx.strokeStyle = "rgba(140,198,255,0.42)";
     ctx.lineWidth = 1.5;
-    roundRect(ctx, groupX, groupY, groupW, groupContainerH, 12, false, true);
+    roundRect(ctx, groupX, groupY, groupW, groupContainerH, 14, false, true);
     ctx.restore();
 
-    // Group title
     ctx.save();
-    ctx.font = "bold 13px Arial";
-    ctx.fillStyle = currentTheme.glowColor;
+    const badgeW = 130;
+    const badgeX = groupX + 20;
+    const badgeY = groupY + 10;
+    const badgeGrad = ctx.createLinearGradient(badgeX, badgeY, badgeX, badgeY + 24);
+    badgeGrad.addColorStop(0, "rgba(130,210,255,0.24)");
+    badgeGrad.addColorStop(1, "rgba(90,130,220,0.2)");
+    ctx.fillStyle = badgeGrad;
+    roundRect(ctx, badgeX, badgeY, badgeW, 24, 8, true, false);
+    ctx.strokeStyle = "rgba(170,225,255,0.48)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, badgeX, badgeY, badgeW, 24, 8, false, true);
+    ctx.font = `700 12px ${UI_FONT}`;
+    ctx.fillStyle = "#ddf5ff";
     ctx.textAlign = "left";
-    ctx.fillText(group.title, groupX + 24, groupY + 28);
+    ctx.fillText(group.title, badgeX + 12, badgeY + 17);
     ctx.restore();
 
-    currentY += 45;
+    currentY += 46;
 
-    // Group items in 2-column layout
     itemsInGroup.forEach((action, idx) => {
       const row = Math.floor(idx / 2);
       const col = idx % 2;
@@ -984,38 +1081,46 @@ function drawControlsMenu(time) {
       const keyBind = controlsConfig[action] || "?";
       const waitingForThis = (waitingForKeyBinding === action);
 
-      // Background box with rounded appearance
       ctx.save();
       const boxWidth = 420;
-      const boxHeight = 48;
+      const boxHeight = 50;
+      controlItemBounds.push({
+        x,
+        y: y - boxHeight / 2,
+        w: boxWidth,
+        h: boxHeight,
+        index: itemIndex
+      });
 
-      const gradient = ctx.createLinearGradient(x, y - boxHeight/2, x, y + boxHeight/2);
+      const gradient = ctx.createLinearGradient(x, y - boxHeight / 2, x, y + boxHeight / 2);
 
       if (selected || waitingForThis) {
-        gradient.addColorStop(0, "rgba(100,150,255,0.3)");
-        gradient.addColorStop(0.5, "rgba(100,150,255,0.15)");
-        gradient.addColorStop(1, "rgba(100,150,255,0.3)");
+        gradient.addColorStop(0, "rgba(104,181,255,0.3)");
+        gradient.addColorStop(0.5, "rgba(72,128,220,0.2)");
+        gradient.addColorStop(1, "rgba(72,128,220,0.26)");
         ctx.shadowBlur = 20;
-        ctx.shadowColor = currentTheme.glowColor;
+        ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.9);
       } else {
-        gradient.addColorStop(0, "rgba(255,255,255,0.05)");
-        gradient.addColorStop(1, "rgba(255,255,255,0.01)");
+        gradient.addColorStop(0, "rgba(255,255,255,0.06)");
+        gradient.addColorStop(1, "rgba(255,255,255,0.015)");
         ctx.shadowBlur = 5;
         ctx.shadowColor = "rgba(0,0,0,0.2)";
       }
 
       ctx.fillStyle = gradient;
-      roundRect(ctx, x, y - boxHeight/2, boxWidth, boxHeight, 8, true, false);
+      roundRect(ctx, x, y - boxHeight / 2, boxWidth, boxHeight, 8, true, false);
 
-      // Border
-      ctx.strokeStyle = selected || waitingForThis ? currentTheme.hudTextColor : "rgba(255,255,255,0.15)";
-      ctx.lineWidth = selected || waitingForThis ? 2 : 1;
-      roundRect(ctx, x, y - boxHeight/2, boxWidth, boxHeight, 8, false, true);
+      ctx.strokeStyle = selected || waitingForThis ? hexToRgba(currentTheme.glowColor, 0.95) : "rgba(255,255,255,0.18)";
+      ctx.lineWidth = selected || waitingForThis ? 2.1 : 1;
+      roundRect(ctx, x, y - boxHeight / 2, boxWidth, boxHeight, 8, false, true);
+      if (selected || waitingForThis) {
+        ctx.fillStyle = "rgba(164,223,255,0.92)";
+        ctx.fillRect(x + 9, y - boxHeight / 2 + 8, 4, boxHeight - 16);
+      }
 
-      // Pulsing animation for waiting
       if (waitingForThis) {
-        const pulse = 0.65 + 0.35 * Math.sin(t * 4);
-        ctx.globalAlpha = pulse;
+        const waitPulse = 0.65 + 0.35 * Math.sin(t * 4);
+        ctx.globalAlpha = waitPulse;
         ctx.strokeStyle = "#ffff00";
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -1026,53 +1131,59 @@ function drawControlsMenu(time) {
 
       ctx.restore();
 
-      // Action label
-      ctx.font = selected || waitingForThis ? "bold 14px Arial" : "14px Arial";
-      ctx.fillStyle = selected || waitingForThis ? currentTheme.hudTextColor : "rgba(255,255,255,0.8)";
+      ctx.font = selected || waitingForThis ? `700 14px ${UI_FONT}` : `600 14px ${UI_FONT}`;
+      ctx.fillStyle = selected || waitingForThis ? "#f0fbff" : "rgba(236,246,255,0.83)";
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
-      ctx.fillText(actionLabels[action] || action, x + 20, y);
+      ctx.fillText(actionLabels[action] || action, x + 24, y);
 
-      // Key binding badge
       ctx.save();
       const badgeWidth = 80;
       const badgeHeight = 28;
       const badgeX = x + boxWidth - badgeWidth - 10;
-      const badgeY = y - badgeHeight/2;
+      const badgeY = y - badgeHeight / 2;
 
       if (waitingForThis) {
-        ctx.fillStyle = "rgba(255,255,0,0.1)";
+        ctx.fillStyle = "rgba(255,239,127,0.14)";
         roundRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 6, true, false);
-        ctx.fillStyle = "#ffff00";
-        ctx.font = "bold 10px Arial";
+        ctx.strokeStyle = "rgba(255,239,127,0.5)";
+        ctx.lineWidth = 1;
+        roundRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 6, false, true);
+        ctx.fillStyle = "#ffef9f";
+        ctx.font = `700 10px ${UI_FONT}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("Press key", badgeX + badgeWidth/2, y);
+        ctx.fillText("Press key", badgeX + badgeWidth / 2, y);
       } else {
-        ctx.fillStyle = selected ? "rgba(102,255,153,0.1)" : "rgba(150,200,255,0.08)";
+        const keyGrad = ctx.createLinearGradient(badgeX, badgeY, badgeX, badgeY + badgeHeight);
+        keyGrad.addColorStop(0, selected ? "rgba(125,231,255,0.24)" : "rgba(150,200,255,0.16)");
+        keyGrad.addColorStop(1, selected ? "rgba(87,163,235,0.22)" : "rgba(105,144,214,0.12)");
+        ctx.fillStyle = keyGrad;
         roundRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 6, true, false);
-        ctx.fillStyle = selected ? "#66ff99" : "rgba(150,200,255,0.85)";
-        ctx.font = "bold 12px monospace";
+        ctx.strokeStyle = selected ? "rgba(168,236,255,0.7)" : "rgba(167,210,255,0.42)";
+        ctx.lineWidth = 1;
+        roundRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 6, false, true);
+        ctx.fillStyle = selected ? "#d9f8ff" : "rgba(224,242,255,0.88)";
+        ctx.font = "700 12px Consolas, monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(keyBind, badgeX + badgeWidth/2, y);
+        ctx.fillText(keyBind, badgeX + badgeWidth / 2, y);
       }
       ctx.restore();
 
       itemIndex++;
     });
 
-    currentY += rows * 56 + 20;
+    currentY += rows * 58 + 20;
   });
 
-  // Instructions at bottom
   ctx.save();
-  ctx.font = "13px Arial";
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.font = `500 13px ${UI_FONT}`;
+  ctx.fillStyle = "rgba(225,241,255,0.74)";
   ctx.textAlign = "center";
   ctx.shadowBlur = 5;
   ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.fillText("↑ ↓ Navigate | ENTER Rebind | ESC Back", canvas.width / 2, canvas.height - 40);
+  ctx.fillText("Mouse click or keyboard: UP/DOWN Navigate, ENTER Rebind, ESC Back", canvas.width / 2, canvas.height - 40);
   ctx.restore();
 }
 
@@ -1084,13 +1195,13 @@ function drawNameEntry() {
   ctx.textAlign = "center";
   ctx.fillStyle = currentTheme.hudTextColor;
 
-  ctx.font = "42px Arial Black";
+  ctx.font = `900 42px ${UI_FONT_HEAVY}`;
   ctx.fillText("ENTER YOUR NAME", canvas.width / 2, 200);
 
-  ctx.font = "28px Arial";
+  ctx.font = `600 28px ${UI_FONT}`;
   ctx.fillText(tempName || "_", canvas.width / 2, 280);
 
-  ctx.font = "18px Arial";
+  ctx.font = `500 18px ${UI_FONT}`;
   ctx.fillText("Press ENTER to submit", canvas.width / 2, 340);
 
   // Show brief on-screen validation if name was empty on submit
@@ -1099,7 +1210,7 @@ function drawNameEntry() {
     const t = Date.now();
     const alpha = 0.6 + 0.4 * Math.abs(Math.sin((t % 400) / 400 * Math.PI * 2));
     ctx.fillStyle = `rgba(255,80,80,${alpha.toFixed(3)})`;
-    ctx.font = "16px Arial";
+    ctx.font = `500 16px ${UI_FONT}`;
     ctx.fillText("Please enter a name", canvas.width / 2, 320);
     // draw a subtle red underline under the name
     ctx.strokeStyle = `rgba(255,80,80,${alpha.toFixed(3)})`;
@@ -1110,6 +1221,43 @@ function drawNameEntry() {
     ctx.lineTo(canvas.width / 2 + textWidth / 2 + 6, 288);
     ctx.stroke();
     ctx.fillStyle = currentTheme.hudTextColor;
+  }
+
+  ctx.restore();
+}
+
+function drawProfileEntry() {
+  drawBackgroundGradient();
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.fillStyle = currentTheme.hudTextColor;
+
+  ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.8);
+  ctx.shadowBlur = 22;
+  ctx.font = `900 44px ${UI_FONT_HEAVY}`;
+  ctx.fillText("WELCOME", canvas.width / 2, 170);
+  ctx.shadowBlur = 0;
+
+  ctx.font = `600 22px ${UI_FONT}`;
+  ctx.fillStyle = "rgba(230,245,255,0.9)";
+  ctx.fillText("Enter your player name", canvas.width / 2, 228);
+
+  ctx.fillStyle = "#f3fbff";
+  ctx.font = `700 32px ${UI_FONT}`;
+  ctx.fillText(tempName || "_", canvas.width / 2, 306);
+
+  ctx.font = `500 16px ${UI_FONT}`;
+  ctx.fillStyle = "rgba(210,235,255,0.82)";
+  ctx.fillText("Press ENTER to continue", canvas.width / 2, 356);
+
+  const invalidUntil = window.nameEntryInvalidUntil || 0;
+  if (Date.now() < invalidUntil) {
+    const tt = Date.now();
+    const alpha = 0.6 + 0.4 * Math.abs(Math.sin((tt % 400) / 400 * Math.PI * 2));
+    ctx.fillStyle = `rgba(255,80,80,${alpha.toFixed(3)})`;
+    ctx.font = `500 16px ${UI_FONT}`;
+    ctx.fillText("Please enter a name", canvas.width / 2, 334);
   }
 
   ctx.restore();
@@ -1128,6 +1276,7 @@ window.drawOptions = drawOptions;
 window.drawBotDifficultySelect = drawBotDifficultySelect;
 window.drawControlsMenu = drawControlsMenu;
 window.drawNameEntry = drawNameEntry;
+window.drawProfileEntry = drawProfileEntry;
 window.drawPopups = drawPopups;
 window.drawBlock = drawBlock;
 // Solo type selection screen: Competitive or Casual
@@ -1137,7 +1286,7 @@ function drawSoloTypeSelect() {
   ctx.textAlign = "center";
   ctx.fillStyle = currentTheme.hudTextColor;
 
-  ctx.font = "42px Arial Black";
+  ctx.font = `900 42px ${UI_FONT_HEAVY}`;
   ctx.fillText("SELECT SOLO MODE", canvas.width / 2, 160);
 
   // Draw option cards centered
@@ -1159,12 +1308,14 @@ function drawSoloTypeSelect() {
       color: "#66CCFF"
     }
   ];
+  soloTypeCardBounds = [];
 
   for (let i = 0; i < options.length; i++) {
     const x = startX + i * (cardW + gap);
     const y = startY;
     const opt = options[i];
     const selected = (window.soloTypeSelection || 0) === i;
+    soloTypeCardBounds.push({ x, y, w: cardW, h: cardH, index: i });
 
     // pulsing glow for selected
     const now = performance.now();
@@ -1234,11 +1385,12 @@ function drawSoloTypeSelect() {
 
   // Helper text
   ctx.textAlign = "center";
-  ctx.font = "16px Arial";
+  ctx.font = `500 15px ${UI_FONT}`;
   ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.fillText("Use ←/→ to choose, ENTER to confirm — Competitive uploads score", canvas.width / 2, canvas.height - 72);
+  ctx.fillText("Use LEFT/RIGHT to choose, ENTER to confirm. Competitive uploads score.", canvas.width / 2, canvas.height - 72);
 
   ctx.restore();
 }
 
 window.drawSoloTypeSelect = drawSoloTypeSelect;
+
