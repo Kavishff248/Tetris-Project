@@ -1,5 +1,8 @@
 (function () {
-  const DEFAULT_URL = (window.location.protocol === "https:" ? "wss" : "ws") + "://localhost:8080";
+  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  const DEFAULT_URL = isLocalHost
+    ? "ws://localhost:8080"
+    : ((window.location.protocol === "https:" ? "wss" : "ws") + "://localhost:8080");
 
   const state = {
     serverUrl: window.ONLINE_SERVER_URL || DEFAULT_URL,
@@ -14,7 +17,8 @@
     opponent: null,
     ws: null,
     lastPongAt: 0,
-    lastError: null
+    lastError: null,
+    shouldQueueAfterConnect: false
   };
 
   function emit(evt, payload) {
@@ -45,6 +49,9 @@
       state.status = "Connected";
       const id = baseIdentity();
       emit("hello", { name: id.name, country: id.country, region: state.region });
+      if (state.shouldQueueAfterConnect) {
+        emit("queue_join", { region: state.region });
+      }
     };
 
     ws.onmessage = function (ev) {
@@ -123,17 +130,19 @@
     };
 
     ws.onerror = function () {
-      state.lastError = "Socket error";
+      state.lastError = `Socket error (${state.serverUrl})`;
       state.status = "Connection failed";
     };
 
-    ws.onclose = function () {
+    ws.onclose = function (ev) {
       state.connected = false;
       state.connecting = false;
       state.queueing = false;
       state.matched = false;
       state.roomId = null;
-      state.status = "Disconnected";
+      const reason = ev && ev.reason ? ` - ${ev.reason}` : "";
+      const code = ev && ev.code ? ` (code ${ev.code})` : "";
+      state.status = `Disconnected${code}${reason}`;
     };
   }
 
@@ -144,6 +153,7 @@
   }
 
   function joinQueue() {
+    state.shouldQueueAfterConnect = true;
     if (!state.connected) connect();
     const id = baseIdentity();
     emit("hello", { name: id.name, country: id.country, region: state.region });
@@ -151,6 +161,7 @@
   }
 
   function leaveQueue() {
+    state.shouldQueueAfterConnect = false;
     emit("queue_leave", {});
     state.queueing = false;
     if (!state.matched) state.status = "Ready";
