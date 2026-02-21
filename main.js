@@ -11,6 +11,72 @@ let themeTransition = 0;
 let themeTransitioning = false;
 let themeOld = null;
 let vsResultSubmitted = false;
+let onlineStateFrame = 0;
+let lastOnlineStateSentAt = 0;
+let onlineResultReported = false;
+window.onlineOpponentName = "Opponent";
+
+function serializeOnlinePlayerState(pState) {
+  return {
+    board: pState.board,
+    queue: pState.queue,
+    hold: pState.hold,
+    piece: pState.piece,
+    pieceX: pState.pieceX,
+    pieceY: pState.pieceY,
+    rotation: pState.rotation,
+    score: pState.score,
+    lines: pState.lines,
+    level: pState.level,
+    alive: pState.alive,
+    garbageQueue: pState.garbageQueue
+  };
+}
+
+function applyOnlineOpponentState(payload) {
+  if (!payload || gameMode !== "online1v1") return;
+  if (!bot || typeof bot !== "object") return;
+  if (payload.board) bot.board = payload.board;
+  if (payload.queue) bot.queue = payload.queue;
+  if (payload.hold !== undefined) bot.hold = payload.hold;
+  if (payload.piece !== undefined) bot.piece = payload.piece;
+  if (payload.pieceX !== undefined) bot.pieceX = payload.pieceX;
+  if (payload.pieceY !== undefined) bot.pieceY = payload.pieceY;
+  if (payload.rotation !== undefined) bot.rotation = payload.rotation;
+  if (payload.score !== undefined) bot.score = payload.score;
+  if (payload.lines !== undefined) bot.lines = payload.lines;
+  if (payload.level !== undefined) bot.level = payload.level;
+  if (payload.alive !== undefined) bot.alive = !!payload.alive;
+  if (payload.garbageQueue !== undefined) bot.garbageQueue = payload.garbageQueue;
+}
+
+function startOnlineMatchFromQueue(msg) {
+  currentTheme = THEMES[currentThemeKey];
+  player = createPlayerState();
+  bot = createPlayerState();
+  gameMode = "online1v1";
+  gameState = "playing";
+  popups = [];
+  onlineStateFrame = 0;
+  lastOnlineStateSentAt = 0;
+  onlineResultReported = false;
+  window.onlineOpponentName = (msg && msg.opponent && msg.opponent.name) ? msg.opponent.name : "Opponent";
+}
+
+window.onOnlineMatchFound = function onOnlineMatchFound(msg) {
+  startOnlineMatchFromQueue(msg);
+};
+
+window.onOnlineOpponentState = function onOnlineOpponentState(msg) {
+  if (!msg || !msg.payload) return;
+  applyOnlineOpponentState(msg.payload);
+};
+
+window.onOnlineMatchEnded = function onOnlineMatchEnded() {
+  if (gameMode === "online1v1") {
+    gameState = "gameover";
+  }
+};
 
 function startThemeTransition(oldTheme, newTheme) {
   if (!oldTheme || oldTheme === newTheme) return;
@@ -89,7 +155,7 @@ function drawVS(time) {
   const menuBtn = drawMainMenuButton();
   vsMenuButtonBounds = menuBtn;
 
-  if (gameState === "gameover" && gameMode === "vsBot") {
+  if (gameState === "gameover" && (gameMode === "vsBot" || gameMode === "online1v1")) {
     drawVSWinScreen(performance.now());
     return;
   }
@@ -172,6 +238,7 @@ function drawVSWinScreen(time) {
   const botAlive = bot.alive;
   const playerWins = playerAlive && !botAlive;
   const botWins = botAlive && !playerAlive;
+  const isOnline = gameMode === "online1v1";
 
   const glowIntensity = Math.sin(time * 0.003) * 0.3 + 0.7;
 
@@ -191,7 +258,7 @@ function drawVSWinScreen(time) {
     ctx.shadowBlur = 20;
     ctx.fillStyle = "rgba(100, 255, 150, 0.9)";
     ctx.font = "30px Arial";
-    ctx.fillText("VICTORY AGAINST THE BOT", canvas.width / 2, canvas.height / 2 - 10);
+    ctx.fillText(isOnline ? "VICTORY IN ONLINE ARENA" : "VICTORY AGAINST THE BOT", canvas.width / 2, canvas.height / 2 - 10);
 
   } else if (botWins) {
     const glowColor = `rgba(255, 80, 80, ${glowIntensity * 0.5})`;
@@ -209,7 +276,7 @@ function drawVSWinScreen(time) {
     ctx.shadowBlur = 20;
     ctx.fillStyle = "rgba(255, 150, 150, 0.9)";
     ctx.font = "30px Arial";
-    ctx.fillText("THE BOT DEFEATED YOU", canvas.width / 2, canvas.height / 2 - 10);
+    ctx.fillText(isOnline ? "OPPONENT DEFEATED YOU" : "THE BOT DEFEATED YOU", canvas.width / 2, canvas.height / 2 - 10);
   }
 
   ctx.shadowColor = "rgba(0, 0, 0, 0)";
@@ -218,7 +285,7 @@ function drawVSWinScreen(time) {
   ctx.font = "22px Arial";
   ctx.textAlign = "center";
   ctx.fillText(`Your Score: ${player.score}`, canvas.width / 2, canvas.height / 2 + 60);
-  ctx.fillText(`Bot Score: ${bot.score}`, canvas.width / 2, canvas.height / 2 + 100);
+  ctx.fillText(`${isOnline ? "Opponent" : "Bot"} Score: ${bot.score}`, canvas.width / 2, canvas.height / 2 + 100);
 
   const borderGlow = Math.sin(time * 0.002) * 3 + 7;
   ctx.strokeStyle = playerWins ? `rgba(0, 255, 100, 0.6)` : `rgba(255, 100, 100, 0.6)`;
@@ -306,7 +373,7 @@ function gameLoop(timestamp) {
 
   } else if (gameState === "paused") {
     if (gameMode === "solo") drawSolo(timestamp);
-    else if (gameMode === "vsBot") drawVS(timestamp);
+    else if (gameMode === "vsBot" || gameMode === "online1v1") drawVS(timestamp);
     drawPauseOverlay();
 
   } else if (gameState === "playing" || gameState === "gameover") {
@@ -325,7 +392,7 @@ function gameLoop(timestamp) {
 
       drawSolo(timestamp);
       if (window.runSoloEffects) runSoloEffects();
-    } else if (gameMode === "vsBot") {
+    } else if (gameMode === "vsBot" || gameMode === "online1v1") {
       if (!player.piece) spawnPiece(player);
       if (!bot.piece) spawnPiece(bot);
 
@@ -339,12 +406,27 @@ function gameLoop(timestamp) {
         }
       }
 
-      if (gameState === "playing") {
+      if (gameMode === "vsBot" && gameState === "playing") {
         updateBotPlayer(bot, now);
       }
 
-      if (gameState === "gameover") {
+      if (gameMode === "online1v1" && gameState === "playing") {
+        if (window.online1v1 && (now - lastOnlineStateSentAt >= 50)) {
+          lastOnlineStateSentAt = now;
+          onlineStateFrame += 1;
+          window.online1v1.sendState(onlineStateFrame, serializeOnlinePlayerState(player));
+        }
+      }
+
+      if (gameMode === "vsBot" && gameState === "gameover") {
         submitVsResultIfNeeded();
+      }
+      if (gameMode === "online1v1" && gameState === "gameover" && !onlineResultReported) {
+        onlineResultReported = true;
+        if (window.online1v1) {
+          const didWin = !!(player.alive && !bot.alive);
+          window.online1v1.reportResult(didWin, Number(player.score) || 0, Number(bot.score) || 0);
+        }
       }
 
       drawVS(timestamp);
@@ -752,7 +834,11 @@ document.addEventListener("keydown", (e) => {
     if (action === "restart" || e.key.toLowerCase() === "r") {
       if (gameMode === "solo") {
         if (window.soloType === 'casual') startSolo('casual');
-      } else if (gameMode === "vsBot") startVSBot();
+      } else if (gameMode === "vsBot") {
+        startVSBot();
+      } else if (gameMode === "online1v1") {
+        gameState = "onlineArena";
+      }
     }
     return;
   }
@@ -799,7 +885,11 @@ document.addEventListener("keydown", (e) => {
   } else if (action === "restart") {
     if (gameMode === "solo") {
       if (window.soloType === 'casual') startSolo('casual');
-    } else if (gameMode === "vsBot") startVSBot();
+    } else if (gameMode === "vsBot") {
+      startVSBot();
+    } else if (gameMode === "online1v1") {
+      gameState = "onlineArena";
+    }
   }
 });
 

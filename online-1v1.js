@@ -1,8 +1,5 @@
 (function () {
-  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-  const DEFAULT_URL = isLocalHost
-    ? "ws://localhost:8080"
-    : ((window.location.protocol === "https:" ? "wss" : "ws") + "://localhost:8080");
+  const DEFAULT_URL = "ws://localhost:8080";
 
   const state = {
     serverUrl: window.ONLINE_SERVER_URL || DEFAULT_URL,

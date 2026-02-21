@@ -321,9 +321,11 @@ function drawHUDVS() {
   ctx.fillStyle = currentTheme.hudTextColor;
   ctx.font = `700 18px ${UI_FONT}`;
   ctx.textAlign = "center";
+  const isOnline = gameMode === "online1v1";
+  const rightLabel = isOnline ? ((window.onlineOpponentName || "Opponent").substring(0, 12)) : "BOT";
 
   ctx.fillText(`YOU`, VS_PLAYER_BOARD_X + (COLS * BLOCK) / 2, 80);
-  ctx.fillText(`BOT`, VS_BOT_BOARD_X + (COLS * BLOCK) / 2, 80);
+  ctx.fillText(rightLabel, VS_BOT_BOARD_X + (COLS * BLOCK) / 2, 80);
 
   ctx.font = `600 16px ${UI_FONT}`;
   ctx.fillText(
