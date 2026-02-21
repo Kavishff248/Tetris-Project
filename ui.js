@@ -351,111 +351,201 @@ function drawMainMenu(time) {
 
   const t = time / 1000;
   const theme = currentTheme;
+  const pulse = 0.7 + 0.3 * Math.sin(t * 2);
+  const leftX = 130;
+  const leftY = 170;
+  const panelX = canvas.width - 530;
+  const panelY = 120;
+  const panelW = 410;
+  const panelH = 520;
 
-  // Left side: fixed TETRIS+ logo
-  const logoX = canvas.width * 0.25;
-  const logoY = canvas.height * 0.25;
-
-  ctx.save();
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-
-  const pulse = 0.6 + 0.4 * Math.sin(t * 2.2);
-
-  ctx.font = `900 92px ${UI_FONT_HEAVY}`;
-  ctx.shadowColor = theme.menuLogoShadow;
-  ctx.shadowBlur = 32 * pulse;
-  ctx.fillStyle = theme.menuLogoColor;
-  ctx.fillText("TETRIS+", logoX - 200, logoY);
-
-  ctx.shadowBlur = 0;
-
-  // Right side: vertical buttons
   const labels = [
     "Single Player",
     "Bot Mode",
+    "Online 1v1",
     "Leaderboards",
+    "1v1 Arena",
     "Controls",
     "Options"
   ];
 
-  const buttonColors = theme.menuButtonColors;
-  const baseX = canvas.width * 0.6;
-  const baseY = canvas.height * 0.25;
-  const btnW = 340;
-  const btnH = 52;
-  const spacing = 12;
-
-  topRightMenuButtons = [];
-
-  ctx.font = `700 22px ${UI_FONT}`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-
-  labels.forEach((label, i) => {
-    const x = baseX;
-    const y = baseY + i * (btnH + spacing);
-    const isSelected = (i === menuSelection);
-
-    const color = buttonColors[i % buttonColors.length];
-    ctx.save();
-
-    // modern rounded button
-    ctx.shadowColor = isSelected ? theme.glowColor : 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = isSelected ? 28 : 8;
-    const grad = ctx.createLinearGradient(x, y, x + btnW, y + btnH);
-    grad.addColorStop(0, hexToRgba(color, isSelected ? 0.95 : 0.85));
-    grad.addColorStop(1, hexToRgba(color, isSelected ? 0.82 : 0.7));
-    ctx.fillStyle = grad;
-    roundRect(ctx, x, y, btnW, btnH, 12, true, false);
-
-    ctx.fillStyle = '#fff';
-    ctx.font = isSelected ? `800 19px ${UI_FONT}` : `600 17px ${UI_FONT}`;
-    ctx.textAlign = 'left';
-    ctx.fillText(label, x + 26, y + btnH / 2 + (isSelected ? 2 : 0));
-
-    ctx.restore();
-
-    topRightMenuButtons.push({ x, y, w: btnW, h: btnH, index: i });
-  });
-
-  // Bottom banner
-  const bannerH = 110;
-  const bannerY = canvas.height - bannerH - 40;
-  const bannerX = canvas.width * 0.15;
-  const bannerW = canvas.width * 0.7;
-
   ctx.save();
-  drawGlassPanel(bannerX, bannerY, bannerW, bannerH, 14, theme.menuBannerAccent);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `600 18px ${UI_FONT}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText("Also Available!", bannerX + 16, bannerY + 12);
-
-  ctx.font = `800 24px ${UI_FONT}`;
-  ctx.fillText("TETRIS+ Modes", bannerX + 16, bannerY + 40);
-
+  ctx.shadowColor = theme.menuLogoShadow;
+  ctx.shadowBlur = 26 * pulse;
+  ctx.fillStyle = theme.menuLogoColor;
+  ctx.font = `900 90px ${UI_FONT_HEAVY}`;
+  ctx.fillText("TETRIS+", leftX, leftY);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(225,242,255,0.86)";
+  ctx.font = `600 22px ${UI_FONT}`;
+  ctx.fillText("Clean stack. Fast queue. Global arena.", leftX + 2, leftY + 104);
   ctx.font = `500 15px ${UI_FONT}`;
-  ctx.fillText(
-    "Challenge the bot or play Solo with advanced themes and undo-powered practice.",
-    bannerX + 16,
-    bannerY + 68
-  );
-
+  ctx.fillStyle = "rgba(215,235,255,0.72)";
+  ctx.fillText("UP/DOWN + ENTER or mouse click", leftX + 2, leftY + 142);
   ctx.restore();
 
-  // Helper text
   ctx.save();
-  ctx.font = `500 15px ${UI_FONT}`;
-  ctx.fillStyle = "#ffffff";
+  drawGlassPanel(panelX, panelY, panelW, panelH, 18, theme.menuBannerAccent);
+  ctx.fillStyle = "rgba(230,245,255,0.9)";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.font = `700 18px ${UI_FONT}`;
+  ctx.fillText("MAIN MENU", panelX + 24, panelY + 18);
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 20, panelY + 52);
+  ctx.lineTo(panelX + panelW - 20, panelY + 52);
+  ctx.stroke();
+  ctx.restore();
+
+  topRightMenuButtons = [];
+  const rowX = panelX + 20;
+  const rowW = panelW - 40;
+  const rowH = 54;
+  const rowGap = 10;
+  const firstY = panelY + 66;
+  const buttonColors = theme.menuButtonColors;
+
+  labels.forEach((label, i) => {
+    const y = firstY + i * (rowH + rowGap);
+    const isSelected = (i === menuSelection);
+    const color = buttonColors[i % buttonColors.length];
+
+    ctx.save();
+    const rowGrad = ctx.createLinearGradient(rowX, y, rowX + rowW, y + rowH);
+    if (isSelected) {
+      rowGrad.addColorStop(0, hexToRgba(color, 0.34));
+      rowGrad.addColorStop(1, hexToRgba(color, 0.2));
+      ctx.shadowColor = hexToRgba(color, 0.8);
+      ctx.shadowBlur = 14;
+    } else {
+      rowGrad.addColorStop(0, "rgba(255,255,255,0.06)");
+      rowGrad.addColorStop(1, "rgba(255,255,255,0.02)");
+      ctx.shadowBlur = 0;
+    }
+    ctx.fillStyle = rowGrad;
+    roundRect(ctx, rowX, y, rowW, rowH, 11, true, false);
+
+    ctx.strokeStyle = isSelected ? hexToRgba(color, 0.85) : "rgba(170,205,245,0.25)";
+    ctx.lineWidth = isSelected ? 1.8 : 1;
+    roundRect(ctx, rowX, y, rowW, rowH, 11, false, true);
+
+    if (isSelected) {
+      ctx.fillStyle = "rgba(235,248,255,0.95)";
+      ctx.fillRect(rowX + 12, y + 10, 4, rowH - 20);
+    }
+
+    ctx.fillStyle = "#f2f9ff";
+    ctx.font = isSelected ? `700 19px ${UI_FONT}` : `600 17px ${UI_FONT}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, rowX + 28, y + rowH / 2 + 1);
+    ctx.restore();
+
+    topRightMenuButtons.push({ x: rowX, y, w: rowW, h: rowH, index: i });
+  });
+}
+
+function drawOnlineArenaScreen(time) {
+  drawBackgroundGradient();
+  onlineArenaQueueButtonBounds = null;
+  onlineArenaBackButtonBounds = null;
+
+  const online = window.online1v1 ? window.online1v1.getState() : null;
+  const status = online ? online.status : "Online module not loaded";
+  const queueing = !!(online && online.queueing);
+  const matched = !!(online && online.matched);
+
+  ctx.save();
   ctx.textAlign = "center";
-  ctx.fillText(
-    "Use keyboard or mouse: UP/DOWN + ENTER, or click to select. ESC to quit game.",
-    canvas.width / 2,
-    canvas.height - 12
-  );
+  ctx.fillStyle = "#f3fbff";
+  ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.8);
+  ctx.shadowBlur = 24;
+  ctx.font = `900 52px ${UI_FONT_HEAVY}`;
+  ctx.fillText("ONLINE 1V1", canvas.width / 2, 90);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(220,240,255,0.78)";
+  ctx.font = `600 14px ${UI_FONT}`;
+  ctx.fillText("Realtime queue and matchmaking (MVP scaffold)", canvas.width / 2, 116);
+  ctx.restore();
+
+  const panelX = canvas.width / 2 - 420;
+  const panelY = 150;
+  const panelW = 840;
+  const panelH = 420;
+
+  drawGlassPanel(panelX, panelY, panelW, panelH, 16, currentTheme.glowColor);
+
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#eaf7ff";
+  ctx.font = `700 20px ${UI_FONT}`;
+  ctx.fillText("Connection", panelX + 30, panelY + 56);
+
+  ctx.font = `600 16px ${UI_FONT}`;
+  ctx.fillStyle = "rgba(230,245,255,0.9)";
+  ctx.fillText(`Status: ${status}`, panelX + 30, panelY + 92);
+  ctx.fillText(`Server: ${(online && online.serverUrl) || "ws://localhost:8080"}`, panelX + 30, panelY + 124);
+  ctx.fillText(`Region: ${(online && online.region) || "global"}`, panelX + 30, panelY + 156);
+  if (online && online.opponent) {
+    ctx.fillText(`Opponent: ${online.opponent.name || "Unknown"}`, panelX + 30, panelY + 188);
+  }
+  if (online && online.roomId) {
+    ctx.fillText(`Room: ${online.roomId}`, panelX + 30, panelY + 220);
+  }
+  ctx.restore();
+
+  const queueW = 270;
+  const queueH = 50;
+  const queueX = canvas.width / 2 - queueW / 2;
+  const queueY = panelY + panelH - 120;
+  onlineArenaQueueButtonBounds = { x: queueX, y: queueY, w: queueW, h: queueH };
+
+  ctx.save();
+  const queueGrad = ctx.createLinearGradient(queueX, queueY, queueX, queueY + queueH);
+  queueGrad.addColorStop(0, queueing ? "rgba(255,130,130,0.3)" : "rgba(100,190,255,0.3)");
+  queueGrad.addColorStop(1, queueing ? "rgba(180,70,70,0.25)" : "rgba(40,110,200,0.25)");
+  ctx.fillStyle = queueGrad;
+  roundRect(ctx, queueX, queueY, queueW, queueH, 12, true, false);
+  ctx.strokeStyle = queueing ? "rgba(255,160,160,0.9)" : hexToRgba(currentTheme.glowColor, 0.9);
+  ctx.lineWidth = 2;
+  roundRect(ctx, queueX, queueY, queueW, queueH, 12, false, true);
+  ctx.fillStyle = "#f3fbff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 16px ${UI_FONT}`;
+  ctx.fillText(queueing ? "LEAVE QUEUE" : "JOIN QUEUE", queueX + queueW / 2, queueY + queueH / 2 + 1);
+  ctx.restore();
+
+  const backW = 220;
+  const backH = 38;
+  const backX = canvas.width / 2 - backW / 2;
+  const backY = queueY + 68;
+  onlineArenaBackButtonBounds = { x: backX, y: backY, w: backW, h: backH };
+
+  ctx.save();
+  ctx.fillStyle = "rgba(90,130,200,0.2)";
+  roundRect(ctx, backX, backY, backW, backH, 10, true, false);
+  ctx.strokeStyle = "rgba(170,210,255,0.7)";
+  roundRect(ctx, backX, backY, backW, backH, 10, false, true);
+  ctx.fillStyle = "#e9f6ff";
+  ctx.font = `700 14px ${UI_FONT}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("BACK TO MENU", backX + backW / 2, backY + backH / 2 + 1);
+  ctx.restore();
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.font = `500 14px ${UI_FONT}`;
+  const help = matched
+    ? "Match found. Integration hooks are active; wire gameplay sync next."
+    : "ENTER toggles queue. ESC returns to menu.";
+  ctx.fillText(help, canvas.width / 2, canvas.height - 24);
   ctx.restore();
 }
 
@@ -466,6 +556,8 @@ async function drawLeaderboardScreen(time) {
   const t = time / 1000;
   const entries = leaderboardData || [];
   leaderboardBackButtonBounds = null;
+  leaderboardTabButtonBounds = [];
+  const mode = window.leaderboardMode === "vs1v1" ? "vs1v1" : "solo";
 
   ctx.save();
   ctx.textAlign = "center";
@@ -473,17 +565,50 @@ async function drawLeaderboardScreen(time) {
   ctx.shadowBlur = 26;
   ctx.fillStyle = "#f3fbff";
   ctx.font = `900 58px ${UI_FONT_HEAVY}`;
-  ctx.fillText("GLOBAL LEADERBOARD", canvas.width / 2, 88);
+  ctx.fillText("GLOBAL LEADERBOARD", canvas.width / 2, 82);
   ctx.shadowBlur = 0;
   ctx.fillStyle = "rgba(220,240,255,0.75)";
   ctx.font = `600 14px ${UI_FONT}`;
-  ctx.fillText("Top pilots of the stack arena", canvas.width / 2, 114);
+  ctx.fillText(mode === "vs1v1" ? "Top 1v1 players by rating" : "Top solo score players", canvas.width / 2, 108);
   ctx.restore();
 
+  const tabs = [
+    { label: "SOLO", mode: "solo" },
+    { label: "1V1 ARENA", mode: "vs1v1" }
+  ];
+  const tabsY = 124;
+  const tabW = 170;
+  const tabH = 34;
+  const tabGap = 14;
+  const tabsX = canvas.width / 2 - ((tabs.length * tabW + (tabs.length - 1) * tabGap) / 2);
+
+  tabs.forEach((tab, idx) => {
+    const x = tabsX + idx * (tabW + tabGap);
+    const y = tabsY;
+    const active = tab.mode === mode;
+    leaderboardTabButtonBounds.push({ x, y, w: tabW, h: tabH, mode: tab.mode });
+
+    ctx.save();
+    const g = ctx.createLinearGradient(x, y, x, y + tabH);
+    g.addColorStop(0, active ? "rgba(100,190,255,0.32)" : "rgba(70,110,180,0.16)");
+    g.addColorStop(1, active ? "rgba(50,120,220,0.26)" : "rgba(20,50,120,0.14)");
+    ctx.fillStyle = g;
+    roundRect(ctx, x, y, tabW, tabH, 9, true, false);
+    ctx.strokeStyle = active ? hexToRgba(currentTheme.glowColor, 0.9) : "rgba(160,200,255,0.35)";
+    ctx.lineWidth = active ? 2 : 1.2;
+    roundRect(ctx, x, y, tabW, tabH, 9, false, true);
+    ctx.fillStyle = active ? "#ecf8ff" : "rgba(220,235,255,0.8)";
+    ctx.font = active ? `700 13px ${UI_FONT}` : `600 13px ${UI_FONT}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(tab.label, x + tabW / 2, y + tabH / 2 + 0.5);
+    ctx.restore();
+  });
+
   const containerX = canvas.width / 2 - 470;
-  const containerY = 140;
+  const containerY = 172;
   const containerW = 940;
-  const containerH = 560;
+  const containerH = 528;
   const panelPulse = 0.65 + 0.35 * Math.sin(t * 1.8);
 
   ctx.save();
@@ -510,8 +635,15 @@ async function drawLeaderboardScreen(time) {
   ctx.textAlign = "left";
   ctx.fillText("RANK", containerX + 34, headerY);
   ctx.fillText("PLAYER", containerX + 128, headerY);
-  ctx.fillText("SCORE", containerX + 572, headerY);
-  ctx.fillText("COUNTRY", containerX + 760, headerY);
+  if (mode === "vs1v1") {
+    ctx.fillText("RATING", containerX + 472, headerY);
+    ctx.fillText("MATCHES", containerX + 612, headerY);
+    ctx.fillText("W-L", containerX + 770, headerY);
+    ctx.fillText("WIN%", containerX + 860, headerY);
+  } else {
+    ctx.fillText("SCORE", containerX + 572, headerY);
+    ctx.fillText("COUNTRY", containerX + 760, headerY);
+  }
   ctx.restore();
 
   ctx.save();
@@ -581,24 +713,62 @@ async function drawLeaderboardScreen(time) {
     ctx.textBaseline = "middle";
     ctx.fillText((e.name || "Player").substring(0, 20), containerX + 128, entryY);
 
-    ctx.fillStyle = isMedal ? "#ffd66b" : "rgba(178,222,255,0.95)";
-    ctx.font = isMedal ? `800 19px ${UI_FONT_HEAVY}` : `700 18px ${UI_FONT}`;
-    ctx.textAlign = "right";
-    ctx.fillText((e.score || 0).toLocaleString(), containerX + 690, entryY);
+    if (mode === "vs1v1") {
+      const rating = Number(e.rating) || 1000;
+      const matches = Number(e.matches) || 0;
+      const wins = Number(e.wins) || 0;
+      const losses = Number(e.losses) || 0;
+      const winRate = Number(e.win_rate);
 
-    ctx.fillStyle = "rgba(235,245,255,0.8)";
-    ctx.font = `600 14px ${UI_FONT}`;
-    ctx.textAlign = "left";
-    ctx.fillText(e.country || "N/A", containerX + 760, entryY);
+      ctx.fillStyle = isMedal ? "#ffd66b" : "rgba(178,222,255,0.95)";
+      ctx.font = isMedal ? `800 19px ${UI_FONT_HEAVY}` : `700 18px ${UI_FONT}`;
+      ctx.textAlign = "right";
+      ctx.fillText(rating.toLocaleString(), containerX + 574, entryY);
+
+      ctx.fillStyle = "rgba(235,245,255,0.8)";
+      ctx.font = `600 14px ${UI_FONT}`;
+      ctx.textAlign = "right";
+      ctx.fillText(matches.toLocaleString(), containerX + 720, entryY);
+      ctx.fillText(`${wins}-${losses}`, containerX + 825, entryY);
+      ctx.fillText(`${Number.isFinite(winRate) ? winRate.toFixed(1) : "0.0"}%`, containerX + 914, entryY);
+    } else {
+      ctx.fillStyle = isMedal ? "#ffd66b" : "rgba(178,222,255,0.95)";
+      ctx.font = isMedal ? `800 19px ${UI_FONT_HEAVY}` : `700 18px ${UI_FONT}`;
+      ctx.textAlign = "right";
+      ctx.fillText((e.score || 0).toLocaleString(), containerX + 690, entryY);
+
+      ctx.fillStyle = "rgba(235,245,255,0.8)";
+      ctx.font = `600 14px ${UI_FONT}`;
+      ctx.textAlign = "left";
+      ctx.fillText(e.country || "N/A", containerX + 760, entryY);
+    }
 
     entryY += 34;
   });
   ctx.restore();
 
+  if (!leaderboardLoaded) {
+    ctx.save();
+    ctx.fillStyle = "rgba(220,240,255,0.9)";
+    ctx.font = `600 20px ${UI_FONT}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Loading leaderboard...", canvas.width / 2, containerY + containerH / 2);
+    ctx.restore();
+  } else if (entries.length === 0) {
+    ctx.save();
+    ctx.fillStyle = "rgba(220,240,255,0.9)";
+    ctx.font = `600 20px ${UI_FONT}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(mode === "vs1v1" ? "No 1v1 matches yet." : "No solo scores yet.", canvas.width / 2, containerY + containerH / 2);
+    ctx.restore();
+  }
+
   const backW = 210;
   const backH = 38;
   const backX = canvas.width / 2 - backW / 2;
-  const backY = containerY + containerH + 20;
+  const backY = containerY + containerH + 18;
   leaderboardBackButtonBounds = { x: backX, y: backY, w: backW, h: backH };
 
   ctx.save();
@@ -621,7 +791,7 @@ async function drawLeaderboardScreen(time) {
   ctx.textAlign = "center";
   ctx.font = `500 14px ${UI_FONT}`;
   ctx.fillStyle = "rgba(255,255,255,0.65)";
-  ctx.fillText("Arrow keys still work. Mouse click is enabled for fast selection.", canvas.width / 2, canvas.height - 24);
+  ctx.fillText("Use LEFT/RIGHT to switch tabs. Mouse click is enabled.", canvas.width / 2, canvas.height - 24);
   ctx.restore();
 }
 
@@ -1271,6 +1441,7 @@ window.drawHold = drawHold;
 window.drawHUDSolo = drawHUDSolo;
 window.drawHUDVS = drawHUDVS;
 window.drawMainMenu = drawMainMenu;
+window.drawOnlineArenaScreen = drawOnlineArenaScreen;
 window.drawLeaderboardScreen = drawLeaderboardScreen;
 window.drawOptions = drawOptions;
 window.drawBotDifficultySelect = drawBotDifficultySelect;

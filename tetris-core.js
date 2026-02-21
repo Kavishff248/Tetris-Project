@@ -31,6 +31,7 @@ let tempName = "";
 let pendingScore = 0;
 let leaderboardData = null;
 let leaderboardLoaded = false;
+window.leaderboardMode = window.leaderboardMode || "solo";
 // Solo mode type: 'competitive' uploads score and disables undo, 'casual' enables undo and doesn't upload
 window.soloType = window.soloType || 'competitive';
 // Selection index used by the solo-type selection screen (0=Competitive,1=Casual)
@@ -67,12 +68,15 @@ let botDifficultyCardBounds = [];
 let controlItemBounds = [];
 let soloTypeCardBounds = [];
 let leaderboardBackButtonBounds = null;
+let leaderboardTabButtonBounds = [];
+let onlineArenaQueueButtonBounds = null;
+let onlineArenaBackButtonBounds = null;
 
 // Movement speed presets
 const SPEED_PRESETS = [
-  { name: "Slow",   gravity: 1200, das: 150, arr: 16, dcd: 0, sdf: 100, lock: 650 },
-  { name: "Normal", gravity: 800,  das: 110, arr: 10, dcd: 0, sdf: 40,  lock: 500 },
-  { name: "Fast",   gravity: 300,  das: 80,  arr: 6,  dcd: 0, sdf: 20,  lock: 350 },
+  { name: "Slow",   gravity: 1200, das: 150, arr: 16, dcd: 0, sdf: 100, lock: 900 },
+  { name: "Normal", gravity: 800,  das: 110, arr: 10, dcd: 0, sdf: 40,  lock: 700 },
+  { name: "Fast",   gravity: 300,  das: 80,  arr: 6,  dcd: 0, sdf: 20,  lock: 500 },
 ];
 
 let speedPresetIndex = 1;
@@ -582,7 +586,7 @@ function submitCompetitiveScoreAndOpenLeaderboard(score) {
     }
     try {
       if (window.loadLeaderboard) {
-        const data = await window.loadLeaderboard();
+        const data = await window.loadLeaderboard("solo");
         leaderboardData = data;
         leaderboardLoaded = true;
       }
@@ -892,10 +896,10 @@ function spawnClearPopup(pState, lines, tSpin, oldB2B, newB2B, sent = 0, allClea
       else main = "T-SPIN";
     }
   } else {
-    if (lines === 1) main = "SINGLE";
-    else if (lines === 2) main = "DOUBLE";
-    else if (lines === 3) main = "TRIPLE";
-    else if (lines === 4) main = "TETRIS";
+    if (lines === 1) main = "SINGLE LINE CLEAR";
+    else if (lines === 2) main = "DOUBLE LINE CLEAR";
+    else if (lines === 3) main = "TRIPLE LINE CLEAR";
+    else if (lines === 4) main = "QUAD LINE CLEAR";
   }
 
   if (pState.combo >= 2) sub += `COMBO x${pState.combo} `;
@@ -1296,6 +1300,22 @@ function actionFromKeyEvent(e) {
   return null;
 }
 
+function openLeaderboard(mode = "solo") {
+  leaderboardLoaded = false;
+  leaderboardData = null;
+  window.leaderboardMode = mode === "vs1v1" ? "vs1v1" : "solo";
+
+  if (window.loadLeaderboard) {
+    window.loadLeaderboard(window.leaderboardMode).then(data => {
+      leaderboardData = data;
+      leaderboardLoaded = true;
+    }).catch(() => {
+      leaderboardLoaded = false;
+    });
+  }
+  gameState = "leaderboard";
+}
+
 function handleMainMenuSelection() {
   if (menuSelection === 0) {
     // Show solo type selector (competitive vs casual) before starting
@@ -1304,18 +1324,14 @@ function handleMainMenuSelection() {
   } else if (menuSelection === 1) {
     gameState = "botDifficultySelect";
   } else if (menuSelection === 2) {
-    leaderboardLoaded = false;
-    leaderboardData = null;
-
-    window.loadLeaderboard().then(data => {
-      leaderboardData = data;
-      leaderboardLoaded = true;
-    });
-
-    gameState = "leaderboard";
+    gameState = "onlineArena";
   } else if (menuSelection === 3) {
-    gameState = "controls";
+    openLeaderboard("solo");
   } else if (menuSelection === 4) {
+    openLeaderboard("vs1v1");
+  } else if (menuSelection === 5) {
+    gameState = "controls";
+  } else if (menuSelection === 6) {
     gameState = "options";
   }
 }
@@ -1396,3 +1412,4 @@ window.handleHorizontalMovement = handleHorizontalMovement;
 window.describeKeyEvent = describeKeyEvent;
 window.actionFromKeyEvent = actionFromKeyEvent;
 window.handleMainMenuSelection = handleMainMenuSelection;
+window.openLeaderboard = openLeaderboard;

@@ -10,6 +10,7 @@ if (window.setupThemeOverlays) window.setupThemeOverlays();
 let themeTransition = 0;
 let themeTransitioning = false;
 let themeOld = null;
+let vsResultSubmitted = false;
 
 function startThemeTransition(oldTheme, newTheme) {
   if (!oldTheme || oldTheme === newTheme) return;
@@ -236,6 +237,23 @@ function drawVSWinScreen(time) {
   ctx.fillText("R to Restart", canvas.width / 2 + 130, canvas.height / 2 + 190);
 }
 
+async function submitVsResultIfNeeded() {
+  if (gameMode !== "vsBot" || gameState !== "gameover" || vsResultSubmitted) return;
+  if (!window.submitVsResult || !window.getActiveProfileName) return;
+
+  const profileName = window.getActiveProfileName() || "Player";
+  const didWin = !!(player.alive && !bot.alive);
+  const pointsFor = Number(player.score) || 0;
+  const pointsAgainst = Number(bot.score) || 0;
+
+  vsResultSubmitted = true;
+  try {
+    await window.submitVsResult(profileName, didWin, playerCountry, "BOT", pointsFor, pointsAgainst);
+  } catch (err) {
+    console.error("Failed to submit VS result:", err);
+  }
+}
+
 // Game loop
 function gameLoop(timestamp) {
   if (!lastTime) {
@@ -275,6 +293,9 @@ function gameLoop(timestamp) {
 
   } else if (gameState === "controls") {
     drawControlsMenu(timestamp);
+
+  } else if (gameState === "onlineArena") {
+    if (window.drawOnlineArenaScreen) window.drawOnlineArenaScreen(timestamp);
 
   } else if (gameState === "leaderboard") {
     // centralized leaderboard screen
@@ -320,6 +341,10 @@ function gameLoop(timestamp) {
 
       if (gameState === "playing") {
         updateBotPlayer(bot, now);
+      }
+
+      if (gameState === "gameover") {
+        submitVsResultIfNeeded();
       }
 
       drawVS(timestamp);
@@ -386,6 +411,8 @@ function handleCanvasMouseMove(e) {
       controlsSelection = hit.index;
       hover = true;
     }
+  } else if (gameState === "onlineArena") {
+    hover = pointInRect(p.x, p.y, onlineArenaQueueButtonBounds) || pointInRect(p.x, p.y, onlineArenaBackButtonBounds);
   } else if (gameState === "soloTypeSelect") {
     const hit = findHit(soloTypeCardBounds, p.x, p.y);
     if (hit) {
@@ -393,7 +420,7 @@ function handleCanvasMouseMove(e) {
       hover = true;
     }
   } else if (gameState === "leaderboard") {
-    hover = pointInRect(p.x, p.y, leaderboardBackButtonBounds);
+    hover = pointInRect(p.x, p.y, leaderboardBackButtonBounds) || !!findHit(leaderboardTabButtonBounds, p.x, p.y);
   } else if (gameState === "playing" || gameState === "paused" || gameState === "gameover") {
     const menuBtn = gameMode === "solo" ? soloMenuButtonBounds : vsMenuButtonBounds;
     const onMenu = pointInRect(p.x, p.y, menuBtn);
@@ -446,6 +473,26 @@ function handleCanvasClick(e) {
     return;
   }
 
+  if (gameState === "onlineArena") {
+    if (pointInRect(p.x, p.y, onlineArenaQueueButtonBounds)) {
+      if (window.online1v1) {
+        const online = window.online1v1.getState();
+        if (online.queueing) window.online1v1.leaveQueue();
+        else {
+          window.online1v1.connect();
+          window.online1v1.joinQueue();
+        }
+      }
+      return;
+    }
+    if (pointInRect(p.x, p.y, onlineArenaBackButtonBounds)) {
+      if (window.online1v1) window.online1v1.leaveQueue();
+      gameState = "menu";
+      return;
+    }
+    return;
+  }
+
   if (gameState === "soloTypeSelect") {
     const hit = findHit(soloTypeCardBounds, p.x, p.y);
     if (hit) {
@@ -456,6 +503,11 @@ function handleCanvasClick(e) {
   }
 
   if (gameState === "leaderboard") {
+    const tabHit = findHit(leaderboardTabButtonBounds, p.x, p.y);
+    if (tabHit) {
+      if (window.openLeaderboard) window.openLeaderboard(tabHit.mode);
+      return;
+    }
     if (pointInRect(p.x, p.y, leaderboardBackButtonBounds)) {
       gameState = "menu";
     }
@@ -535,12 +587,30 @@ document.addEventListener("keydown", (e) => {
   }
 
   if (gameState === "menu") {
+    const menuCount = 7;
     if (e.key === "ArrowUp") {
-      menuSelection = (menuSelection + 5 - 1) % 5;
+      menuSelection = (menuSelection + menuCount - 1) % menuCount;
     } else if (e.key === "ArrowDown") {
-      menuSelection = (menuSelection + 1) % 5;
+      menuSelection = (menuSelection + 1) % menuCount;
     } else if (e.key === "Enter") {
       handleMainMenuSelection();
+    }
+    return;
+  }
+
+  if (gameState === "onlineArena") {
+    if (e.key === "Enter") {
+      if (window.online1v1) {
+        const online = window.online1v1.getState();
+        if (online.queueing) window.online1v1.leaveQueue();
+        else {
+          window.online1v1.connect();
+          window.online1v1.joinQueue();
+        }
+      }
+    } else if (e.key === "Escape") {
+      if (window.online1v1) window.online1v1.leaveQueue();
+      gameState = "menu";
     }
     return;
   }
@@ -612,6 +682,17 @@ document.addEventListener("keydown", (e) => {
     return;
   }
 
+  if (gameState === "leaderboard") {
+    if (e.key === "ArrowLeft") {
+      if (window.openLeaderboard) window.openLeaderboard("solo");
+    } else if (e.key === "ArrowRight") {
+      if (window.openLeaderboard) window.openLeaderboard("vs1v1");
+    } else if (e.key === "Escape") {
+      gameState = "menu";
+    }
+    return;
+  }
+
   if (gameState === "nameEntry") {
     if (e.key === "Enter") {
       const finalName = tempName.trim();
@@ -624,7 +705,8 @@ document.addEventListener("keydown", (e) => {
         window.saveSettingsForProfile(window.getActiveProfileName());
       }
       if (window.submitScore) window.submitScore(finalName, pendingScore, playerCountry);
-      gameState = "leaderboard";
+      if (window.openLeaderboard) window.openLeaderboard("solo");
+      else gameState = "leaderboard";
       return;
     }
     if (e.key === "Backspace") {
@@ -847,6 +929,7 @@ function startVSBot() {
   currentTheme = THEMES[currentThemeKey];
   player = createPlayerState();
   bot = createPlayerState();
+  vsResultSubmitted = false;
   gameMode = "vsBot";
   gameState = "playing";
   popups = [];
