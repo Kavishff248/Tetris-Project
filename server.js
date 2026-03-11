@@ -15,9 +15,9 @@ const supabase = (supabaseUrl && supabaseServiceRoleKey)
 
 const wss = new WebSocketServer({ port: PORT });
 
-const clients = new Map(); // ws -> player session
-const queueByRegion = new Map(); // region -> [ws]
-const matches = new Map(); // roomId -> match object
+const clients = new Map(); 
+const queueByRegion = new Map(); 
+const matches = new Map(); 
 
 function safeSend(ws, payload) {
   if (!ws || ws.readyState !== ws.OPEN) return;

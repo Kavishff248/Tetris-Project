@@ -83,7 +83,7 @@ function evaluateBoardHeuristic(board, linesCleared) {
   return score;
 }
 
-// --- Lookahead evaluation (upgraded bot) ---
+
 const LOOKAHEAD_MAX = 3;
 
 function evaluateBoard(board, linesCleared, combo = 0, tSpin = false) {
@@ -304,7 +304,7 @@ function updateBotPlayer(pState, now) {
     const aggression = Math.min(1, BOT_AGGRESSION + 0.01 * (level - 1));
     const depth = Math.min(LOOKAHEAD_MAX, 1 + botDifficulty + Math.floor((level - 1) / 10));
 
-    // Keep tier identity stable as levels increase.
+    
     if (botDifficulty === 0) {
       placementAccuracy = Math.min(0.70, BOT_PLACEMENT_ACCURACY + 0.004 * (level - 1));
       moveInterval = Math.max(0.30, moveInterval);

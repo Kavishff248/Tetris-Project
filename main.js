@@ -105,7 +105,7 @@ function drawThemeTransitionOverlay(ctx) {
   ctx.restore();
 }
 
-// Draw helpers used in loop
+
 function drawSolo(time) {
   drawBackgroundGradient();
 
@@ -161,7 +161,7 @@ function drawVS(time) {
   }
 }
 
-// Small helper functions for menu buttons and pause overlay (kept same)
+
 function drawMainMenuButton() {
   const w = 50;
   const h = 38;
@@ -229,7 +229,7 @@ function drawPauseOverlay() {
   ctx.restore();
 }
 
-// VS win screen (kept same visuals)
+
 function drawVSWinScreen(time) {
   ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -321,7 +321,7 @@ async function submitVsResultIfNeeded() {
   }
 }
 
-// Game loop
+
 function gameLoop(timestamp) {
   if (!lastTime) {
     lastTime = timestamp;
@@ -340,7 +340,7 @@ function gameLoop(timestamp) {
 
   updatePopups(delta);
 
-  // Theme transition update
+  
   updateThemeTransition(delta / 1000);
 
   if (gameState === "profileEntry") {
@@ -365,7 +365,7 @@ function gameLoop(timestamp) {
     if (window.drawOnlineArenaScreen) window.drawOnlineArenaScreen(timestamp);
 
   } else if (gameState === "leaderboard") {
-    // centralized leaderboard screen
+    
     drawLeaderboardScreen(timestamp);
 
   } else if (gameState === "nameEntry") {
@@ -396,8 +396,8 @@ function gameLoop(timestamp) {
       if (!player.piece) spawnPiece(player);
       if (!bot.piece) spawnPiece(bot);
 
-      // In VS, once someone tops out and gameState flips to gameover,
-      // stop all further updates immediately.
+      
+      
       if (gameState === "playing") {
         if (cheatActive) {
           updateBotPlayer(player, now);
@@ -434,10 +434,10 @@ function gameLoop(timestamp) {
     }
   }
 
-  // Theme overlay draw
+  
   drawThemeTransitionOverlay(ctx);
 
-  // FX update/draw
+  
   if (window.fxUpdateAndDraw) window.fxUpdateAndDraw(ctx, timestamp);
 
   requestAnimationFrame(gameLoop);
@@ -616,7 +616,7 @@ canvas.addEventListener("mouseleave", () => {
   canvas.style.cursor = "default";
 });
 
-// Input handling (keeps original behavior but fixes option index bug and key binding)
+
 document.addEventListener("keydown", (e) => {
   if (e.repeat && !(gameState === "options" && (e.key === "ArrowLeft" || e.key === "ArrowRight"))) return;
 
@@ -737,7 +737,7 @@ document.addEventListener("keydown", (e) => {
     } else if (e.key === "ArrowRight") {
       handleOptionChange(1);
     } else if (e.key === "Escape") {
-      // Apply adjustments and clear overlays if theme changed
+      
       const oldTheme = currentTheme;
       applyOptionsAdjustments();
       if (oldTheme !== currentTheme && window.fxClearOverlays) {
@@ -852,11 +852,6 @@ document.addEventListener("keydown", (e) => {
   if (gameState !== "playing") return;
   pState = (gameMode === "solo") ? solo : player;
 
-  if (e.key === "ArrowUp") {
-    rotate(pState, 1);
-    return;
-  }
-
   if (action === "moveLeft") {
     keys.left = true;
     beginHorizontalInput(pState, -1, pState.dasDir === 1);
@@ -871,7 +866,7 @@ document.addEventListener("keydown", (e) => {
     if (gameMode === "solo" && pState === solo) pushUndoEveryAction();
     const dy = hardDropDistance(pState);
     pState.pieceY += dy;
-    // set lock time to now to avoid immediate double-lock issues
+    
     pState.lastLockTime = performance.now();
     lockPiece(pState);
   } else if (action === "rotateCW") {
@@ -930,7 +925,7 @@ document.addEventListener("keyup", (e) => {
   }
 });
 
-// Option change handler fixed to match options list indices
+
 function handleOptionChange(dir) {
   if (optionsSelection === 0) {
     const themeKeys = Object.keys(THEMES);
@@ -946,28 +941,28 @@ function handleOptionChange(dir) {
     speedPresetIndex = (speedPresetIndex + dir + SPEED_PRESETS.length) % SPEED_PRESETS.length;
     applySpeedPreset();
   } else if (optionsSelection === 2) {
-    // Custom DAS (ms) - step 10ms, 0 -> Off (null)
+    
     let cur = window.CUSTOM_DAS;
     if (cur === null || cur === undefined) cur = DAS;
     cur = Math.max(0, cur + dir * 10);
     if (cur === 0) cur = null;
     window.setCustomPlayerSpeeds(cur, window.CUSTOM_ARR);
   } else if (optionsSelection === 3) {
-    // Custom ARR (ms) - step 5ms, 0 -> Off (null)
+    
     let cur = window.CUSTOM_ARR;
     if (cur === null || cur === undefined) cur = ARR;
     cur = Math.max(0, cur + dir * 5);
     if (cur === 0) cur = null;
     window.setCustomPlayerSpeeds(window.CUSTOM_DAS, cur);
   } else if (optionsSelection === 4) {
-    // Custom DCD (ms) - step 5ms, 0 -> Off (null)
+    
     let cur = window.CUSTOM_DCD;
     if (cur === null || cur === undefined) cur = DCD;
     cur = Math.max(0, cur + dir * 5);
     if (cur === 0) cur = null;
     window.setCustomPlayerSpeeds(window.CUSTOM_DAS, window.CUSTOM_ARR, cur);
   } else if (optionsSelection === 5) {
-    // SDF: 1..40 cells/s, then Infinity (instant drop)
+    
     let cur = window.CUSTOM_SDF;
     if (cur === null || cur === undefined) cur = SDF;
 
@@ -994,14 +989,14 @@ function handleOptionChange(dir) {
   }
 }
 
-// Start functions
+
 function startSolo() {
-  // default to competitive if not specified
+  
   const type = arguments.length > 0 ? arguments[0] : 'competitive';
   window.soloType = type;
   currentTheme = THEMES[currentThemeKey];
   solo = createPlayerState();
-  // Only initialize undo/redo stacks for casual mode
+  
   if (window.soloType === 'casual') {
     soloUndoStack = [];
     soloRedoStack = [];
@@ -1025,12 +1020,12 @@ function startVSBot() {
   popups = [];
 }
 
-// Apply options adjustments (theme, speed, volume, fps, glow)
+
 function applyOptionsAdjustments() {
 
 }
 
-// Export start functions to window so they're accessible globally
+
 window.startSolo = startSolo;
 window.startVSBot = startVSBot;
 

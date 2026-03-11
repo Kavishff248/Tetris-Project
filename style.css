@@ -1,6 +1,4 @@
-/* ==========================
-   Global Reset & Layout
-   ========================== */
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;900&family=Orbitron:wght@600;700&display=swap");
 
 *,
 *::before,
@@ -9,9 +7,9 @@
 }
 
 :root {
-  --bg-deep: #040612;
-  --bg-mid: #0a1126;
-  --bg-accent: #133a6f;
+  --bg-deep: #05070f;
+  --bg-mid: #0b1226;
+  --bg-accent: #1b3c6d;
   --shell-border: rgba(160, 220, 255, 0.24);
   --shell-glow: rgba(77, 170, 255, 0.45);
   --surface-top: rgba(20, 32, 58, 0.88);
@@ -26,18 +24,17 @@ html, body {
   background:
     radial-gradient(1200px 600px at 14% -6%, rgba(0, 209, 255, 0.16), transparent 60%),
     radial-gradient(900px 520px at 88% 110%, rgba(80, 134, 255, 0.2), transparent 60%),
+    repeating-linear-gradient(135deg, rgba(120, 200, 255, 0.05) 0 1px, transparent 1px 48px),
     linear-gradient(135deg, var(--bg-deep), var(--bg-mid) 52%, #050913 100%);
   color: #fff;
-  font-family: "Segoe UI", "Inter", "SF Pro Text", system-ui, -apple-system, sans-serif;
+  font-family: "Rajdhani", "Segoe UI", system-ui, sans-serif;
   overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
-/* ==========================
-   Canvas Wrapper
-   ========================== */
+
 
 .game-wrapper {
   position: relative;
@@ -72,9 +69,7 @@ html, body {
   pointer-events: none;
 }
 
-/* ==========================
-   Canvas
-   ========================== */
+
 
 #game {
   display: block;
@@ -87,9 +82,7 @@ html, body {
     inset 0 0 0 1px rgba(255,255,255,0.08);
 }
 
-/* ==========================
-   Responsive Handling
-   ========================== */
+
 
 @media (max-width: 1200px), (max-height: 750px) {
   #game {
@@ -106,9 +99,7 @@ html, body {
   }
 }
 
-/* ==========================
-   Optional Meta Tag
-   ========================== */
+
 
 .game-meta {
   position: fixed;
@@ -121,9 +112,7 @@ html, body {
   pointer-events: none;
 }
 
-/* ==========================
-   Optional Notice Banner
-   ========================== */
+
 
 .notice {
   position: fixed;

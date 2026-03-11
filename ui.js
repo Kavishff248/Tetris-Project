@@ -1,6 +1,6 @@
 
-const UI_FONT = '"Segoe UI", "Inter", "SF Pro Text", system-ui, sans-serif';
-const UI_FONT_HEAVY = '"Segoe UI Black", "Arial Black", sans-serif';
+const UI_FONT = '"Rajdhani", "Segoe UI", "Inter", system-ui, sans-serif';
+const UI_FONT_HEAVY = '"Orbitron", "Segoe UI Black", "Arial Black", sans-serif';
 
 function drawBackgroundGradient() {
   const [c1, c2] = currentTheme.backgroundGradient;
@@ -23,14 +23,25 @@ function drawBackgroundGradient() {
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Subtle scanline effect for a cleaner "game client" look.
+  
   ctx.fillStyle = "rgba(255,255,255,0.015)";
   for (let y = 0; y < canvas.height; y += 4) {
     ctx.fillRect(0, y, canvas.width, 1);
   }
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(120, 200, 255, 0.04)";
+  ctx.lineWidth = 1;
+  for (let x = -canvas.height; x < canvas.width; x += 80) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + canvas.height, canvas.height);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
-// Helper: draw rounded rect
+
 function roundRect(ctx, x, y, w, h, r, fill, stroke) {
   if (typeof r === 'undefined') r = 6;
   ctx.beginPath();
@@ -44,7 +55,7 @@ function roundRect(ctx, x, y, w, h, r, fill, stroke) {
   if (stroke) ctx.stroke();
 }
 
-// Helper: wrap text into lines and draw
+
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   const words = text.split(' ');
   let line = '';
@@ -63,7 +74,7 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   if (line) ctx.fillText(line.trim(), x, y);
 }
 
-// convert hex color to rgba string with alpha
+
 function hexToRgba(hex, alpha) {
   if (!hex) return `rgba(255,255,255,${alpha})`;
   const h = hex.replace('#', '');
@@ -90,26 +101,31 @@ function drawGlassPanel(x, y, w, h, radius = 14, accent = currentTheme.glowColor
   roundRect(ctx, x + 1, y + 1, w - 2, h - 2, Math.max(4, radius - 2), false, true);
 }
 
-// Drawing helpers
+
 function drawBlock(x, y, color) {
   ctx.save();
   ctx.fillStyle = color;
   ctx.fillRect(x, y, BLOCK, BLOCK);
 
-  // Reduced shadow cost: only small blur
-  ctx.shadowColor = currentTheme.glowColor;
-  ctx.shadowBlur = 8;
-  ctx.strokeStyle = currentTheme.glowColor;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(x + 1, y + 1, BLOCK - 2, BLOCK - 2);
-
-  ctx.shadowBlur = 0;
   const grad = ctx.createLinearGradient(x, y, x, y + BLOCK);
-  grad.addColorStop(0, "rgba(255,255,255,0.18)");
-  grad.addColorStop(0.4, "rgba(255,255,255,0.05)");
+  grad.addColorStop(0, "rgba(255,255,255,0.28)");
+  grad.addColorStop(0.45, "rgba(255,255,255,0.08)");
   grad.addColorStop(1, "rgba(0,0,0,0.35)");
   ctx.fillStyle = grad;
   ctx.fillRect(x + 1, y + 1, BLOCK - 2, BLOCK - 2);
+
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "rgba(0,0,0,0.45)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 1, y + 1, BLOCK - 2, BLOCK - 2);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + 2, y + BLOCK - 2);
+  ctx.lineTo(x + 2, y + 2);
+  ctx.lineTo(x + BLOCK - 2, y + 2);
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -117,8 +133,13 @@ function drawBlock(x, y, color) {
 function drawMiniBlock(x, y, size, color) {
   ctx.fillStyle = color;
   ctx.fillRect(x, y, size, size);
-  ctx.strokeStyle = "rgba(0,0,0,0.5)";
-  ctx.strokeRect(x, y, size, size);
+  const grad = ctx.createLinearGradient(x, y, x, y + size);
+  grad.addColorStop(0, "rgba(255,255,255,0.22)");
+  grad.addColorStop(1, "rgba(0,0,0,0.35)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
+  ctx.strokeStyle = "rgba(0,0,0,0.45)";
+  ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
 }
 
 function drawMiniPiece(type, cx, cy) {
@@ -151,7 +172,7 @@ function drawMiniPiece(type, cx, cy) {
   }
 }
 
-// Draw board and HUD (kept behavior identical)
+
 function drawBoard(pState, boardX, boardY, theme) {
   ctx.save();
 
@@ -203,7 +224,7 @@ function drawBoard(pState, boardX, boardY, theme) {
       const gx = pState.pieceX + x;
       const gy = pState.pieceY + y + ghostDy;
       if (gy < 2) continue;
-      // cheaper ghost: simple filled rect without gradient
+      
       ctx.fillStyle = getPieceColor(pState.piece);
       ctx.fillRect(boardX + gx * BLOCK, boardY + (gy - 2) * BLOCK, BLOCK, BLOCK);
     }
@@ -220,7 +241,7 @@ function drawBoard(pState, boardX, boardY, theme) {
     }
   }
 
-  // Incoming garbage meter (stylized side rail).
+  
   const meterX = boardX + COLS * BLOCK + 8;
   const meterY = boardY;
   const meterW = 10;
@@ -253,7 +274,7 @@ function drawBoard(pState, boardX, boardY, theme) {
   ctx.restore();
 }
 
-// Draw next and hold boxes
+
 function drawNext(pState, x, y) {
   ctx.save();
   const boxH = BLOCK * 10;
@@ -292,7 +313,7 @@ function drawHold(pState, x, y) {
   ctx.restore();
 }
 
-// HUDs
+
 function drawHUDSolo() {
   ctx.save();
   ctx.shadowColor = currentTheme.glowColor;
@@ -347,7 +368,7 @@ function drawHUDVS() {
   ctx.restore();
 }
 
-// Menus and screens
+
 function drawMainMenu(time) {
   drawBackgroundGradient();
 
@@ -378,7 +399,7 @@ function drawMainMenu(time) {
   ctx.shadowBlur = 26 * pulse;
   ctx.fillStyle = theme.menuLogoColor;
   ctx.font = `900 90px ${UI_FONT_HEAVY}`;
-  ctx.fillText("TETRIS+", leftX, leftY);
+  ctx.fillText(theme.titleLabel || "TETRIS+", leftX, leftY);
   ctx.shadowBlur = 0;
   ctx.fillStyle = "rgba(225,242,255,0.86)";
   ctx.font = `600 22px ${UI_FONT}`;
@@ -551,7 +572,7 @@ function drawOnlineArenaScreen(time) {
   ctx.restore();
 }
 
-// Leaderboard screen uses the centralized loadLeaderboard function
+
 async function drawLeaderboardScreen(time) {
   drawBackgroundGradient();
 
@@ -797,7 +818,7 @@ async function drawLeaderboardScreen(time) {
   ctx.restore();
 }
 
-// Options screen
+
 function drawOptions(time) {
   drawBackgroundGradient();
 
@@ -959,7 +980,7 @@ function drawBotDifficultySelect(time) {
 
   const t = time / 1000;
 
-  // TITLE
+  
   ctx.save();
   ctx.textAlign = "center";
   ctx.shadowColor = currentTheme.glowColor;
@@ -996,7 +1017,7 @@ function drawBotDifficultySelect(time) {
       index: i
     });
 
-    // Card background with gradient
+    
     ctx.save();
     ctx.shadowColor = selected ? currentTheme.glowColor : "rgba(0,0,0,0.4)";
     ctx.shadowBlur = selected ? 30 : 12;
@@ -1015,12 +1036,12 @@ function drawBotDifficultySelect(time) {
     ctx.fillStyle = cardGrad;
     roundRect(ctx, x - cardW/2, y - cardH/2, cardW, cardH, 14, true, false);
 
-    // Border
+    
     ctx.strokeStyle = selected ? currentTheme.glowColor : "rgba(255,255,255,0.15)";
     ctx.lineWidth = selected ? 2.5 : 1.5;
     roundRect(ctx, x - cardW/2, y - cardH/2, cardW, cardH, 14, false, true);
 
-    // Pulsing glow for selected
+    
     if (selected) {
       const pulse = 0.7 + 0.3 * Math.sin(t * 3);
       ctx.globalAlpha = pulse * 0.5;
@@ -1032,29 +1053,29 @@ function drawBotDifficultySelect(time) {
 
     ctx.restore();
 
-    // DIFFICULTY ICON (modern design instead of emoji)
+    
     ctx.save();
     const iconY = y - 80;
     const iconSize = 50;
     
-    // Icon background circle
+    
     ctx.fillStyle = `rgba(${diff.color.slice(1).match(/.{1,2}/g).map(x => parseInt(x, 16)).join(',')},0.15)`;
     ctx.beginPath();
     ctx.arc(x, iconY, iconSize, 0, Math.PI * 2);
     ctx.fill();
 
-    // Icon border
+    
     ctx.strokeStyle = diff.color;
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Draw icon based on difficulty
+    
     ctx.fillStyle = diff.color;
     ctx.strokeStyle = diff.color;
     ctx.lineWidth = 2;
 
     if (i === 0) {
-      // EASY: Simple smiley face
+      
       ctx.beginPath();
       ctx.arc(x, iconY, 18, 0, Math.PI * 2);
       ctx.stroke();
@@ -1069,7 +1090,7 @@ function drawBotDifficultySelect(time) {
       ctx.arc(x, iconY + 6, 1.5, 0, Math.PI);
       ctx.stroke();
     } else if (i === 1) {
-      // NORMAL: Shield with checkmark
+      
       ctx.beginPath();
       ctx.moveTo(x - 12, iconY - 18);
       ctx.lineTo(x + 12, iconY - 18);
@@ -1083,7 +1104,7 @@ function drawBotDifficultySelect(time) {
       ctx.lineTo(x + 8, iconY - 4);
       ctx.stroke();
     } else {
-      // HARD: Lightning bolt
+      
       ctx.beginPath();
       ctx.moveTo(x, iconY - 18);
       ctx.lineTo(x - 8, iconY - 2);
@@ -1098,19 +1119,19 @@ function drawBotDifficultySelect(time) {
 
     ctx.restore();
 
-    // LABEL
+    
     ctx.fillStyle = selected ? currentTheme.hudTextColor : "rgba(255,255,255,0.9)";
-    ctx.font = selected ? "bold 26px Arial" : "bold 24px Arial";
+    ctx.font = selected ? `700 26px ${UI_FONT}` : `700 24px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(diff.label, x, y + 30);
 
-    // DESCRIPTION
+    
     ctx.fillStyle = selected ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.7)";
-    ctx.font = "13px Arial";
+    ctx.font = `600 13px ${UI_FONT}`;
     ctx.fillText(diff.desc, x, y + 60);
 
-    // DIFFICULTY GAUGE
+    
     const gaugeY = y + 95;
     const gaugeW = 180;
     const gaugeH = 6;
@@ -1122,20 +1143,20 @@ function drawBotDifficultySelect(time) {
     ctx.fillStyle = diff.color;
     roundRect(ctx, x - gaugeW/2, gaugeY, gaugeW * fill, gaugeH, 3, true, false);
 
-    // STATS TEXT
+    
     ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.font = "11px Arial";
+    ctx.font = `600 11px ${UI_FONT}`;
     ctx.textAlign = "center";
     const difficultyText = ["Beginner", "Intermediate", "Expert"][i];
     ctx.fillText(difficultyText, x, gaugeY + 22);
 
-    // SELECTED BADGE
+    
     if (selected) {
       ctx.save();
       ctx.fillStyle = "rgba(100,150,255,0.12)";
       roundRect(ctx, x - 50, y + 120, 100, 24, 6, true, false);
       ctx.fillStyle = currentTheme.glowColor;
-      ctx.font = "bold 11px Arial";
+      ctx.font = `700 11px ${UI_FONT}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("SELECTED", x, y + 132);
@@ -1143,10 +1164,10 @@ function drawBotDifficultySelect(time) {
     }
   });
 
-  // INSTRUCTIONS
+  
   ctx.save();
   ctx.textAlign = "center";
-  ctx.font = "13px Arial";
+  ctx.font = `600 13px ${UI_FONT}`;
   ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.shadowColor = "rgba(0,0,0,0.5)";
   ctx.shadowBlur = 5;
@@ -1359,7 +1380,7 @@ function drawControlsMenu(time) {
   ctx.restore();
 }
 
-// Name entry screen
+
 function drawNameEntry() {
   drawBackgroundGradient();
 
@@ -1376,7 +1397,7 @@ function drawNameEntry() {
   ctx.font = `500 18px ${UI_FONT}`;
   ctx.fillText("Press ENTER to submit", canvas.width / 2, 340);
 
-  // Show brief on-screen validation if name was empty on submit
+  
   const invalidUntil = window.nameEntryInvalidUntil || 0;
   if (Date.now() < invalidUntil) {
     const t = Date.now();
@@ -1384,7 +1405,7 @@ function drawNameEntry() {
     ctx.fillStyle = `rgba(255,80,80,${alpha.toFixed(3)})`;
     ctx.font = `500 16px ${UI_FONT}`;
     ctx.fillText("Please enter a name", canvas.width / 2, 320);
-    // draw a subtle red underline under the name
+    
     ctx.strokeStyle = `rgba(255,80,80,${alpha.toFixed(3)})`;
     ctx.lineWidth = 2;
     const textWidth = ctx.measureText(tempName || "_").width;
@@ -1435,7 +1456,7 @@ function drawProfileEntry() {
   ctx.restore();
 }
 
-// Expose UI functions
+
 window.drawBackgroundGradient = drawBackgroundGradient;
 window.drawBoard = drawBoard;
 window.drawNext = drawNext;
@@ -1452,7 +1473,7 @@ window.drawNameEntry = drawNameEntry;
 window.drawProfileEntry = drawProfileEntry;
 window.drawPopups = drawPopups;
 window.drawBlock = drawBlock;
-// Solo type selection screen: Competitive or Casual
+
 function drawSoloTypeSelect() {
   drawBackgroundGradient();
   ctx.save();
@@ -1462,7 +1483,7 @@ function drawSoloTypeSelect() {
   ctx.font = `900 42px ${UI_FONT_HEAVY}`;
   ctx.fillText("SELECT SOLO MODE", canvas.width / 2, 160);
 
-  // Draw option cards centered
+  
   const cardW = Math.min(520, Math.floor(canvas.width * 0.28));
   const cardH = Math.min(160, Math.floor(canvas.height * 0.18));
   const gap = 40;
@@ -1472,12 +1493,12 @@ function drawSoloTypeSelect() {
   const options = [
     {
       title: "Competitive",
-      desc: "No undo/redo — score uploads to leaderboard",
+      desc: "No undo/redo - score uploads to leaderboard",
       color: "#FF6B6B"
     },
     {
       title: "Casual",
-      desc: "Undo/redo allowed — does NOT upload score",
+      desc: "Undo/redo allowed - does NOT upload score",
       color: "#66CCFF"
     }
   ];
@@ -1490,11 +1511,11 @@ function drawSoloTypeSelect() {
     const selected = (window.soloTypeSelection || 0) === i;
     soloTypeCardBounds.push({ x, y, w: cardW, h: cardH, index: i });
 
-    // pulsing glow for selected
+    
     const now = performance.now();
     const pulse = 0.8 + 0.2 * Math.sin(now * 0.006 + i);
 
-    // card background gradient
+    
     const g = ctx.createLinearGradient(x, y, x + cardW, y + cardH);
     if (selected) {
       g.addColorStop(0, hexToRgba(opt.color, 0.14 * pulse));
@@ -1510,45 +1531,45 @@ function drawSoloTypeSelect() {
     ctx.fillStyle = g;
     roundRect(ctx, x, y, cardW, cardH, 14, true, false);
 
-    // small icon box
+    
     const iconX = x + 18;
     const iconY = y + 18;
     const iconSize = 56;
     ctx.fillStyle = hexToRgba(opt.color, 0.95);
     roundRect(ctx, iconX, iconY, iconSize, iconSize, 10, true, false);
-    // draw mini piece as icon (competitive = red square, casual = blue rounded)
+    
     ctx.save();
     ctx.translate(iconX + iconSize / 2, iconY + iconSize / 2);
     if (i === 0) {
-      // competitive: draw 'TT' symbol
+      
       ctx.fillStyle = '#fff';
-      ctx.font = '24px Arial Black';
+      ctx.font = `900 24px ${UI_FONT_HEAVY}`;
       ctx.textAlign = 'center';
       ctx.fillText('CP', 0, 8);
     } else {
       ctx.fillStyle = '#fff';
-      ctx.font = '20px Arial Black';
+      ctx.font = `900 20px ${UI_FONT_HEAVY}`;
       ctx.textAlign = 'center';
       ctx.fillText('CS', 0, 8);
     }
     ctx.restore();
 
-    // title & desc
+    
     ctx.fillStyle = selected ? '#ffffff' : 'rgba(255,255,255,0.95)';
-    ctx.font = '24px Arial Black';
+    ctx.font = `900 24px ${UI_FONT_HEAVY}`;
     ctx.textAlign = 'left';
     ctx.fillText(opt.title, x + 24 + iconSize + 12, y + 46);
 
-    ctx.font = '14px Arial';
+    ctx.font = `600 14px ${UI_FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     wrapText(ctx, opt.desc, x + 24 + iconSize + 12, y + 74, cardW - (24 + iconSize + 36), 18);
 
-    // selected badge
+    
     if (selected) {
       ctx.fillStyle = hexToRgba('#ffffff', 0.06);
       roundRect(ctx, x + cardW - 110, y + 18, 86, 36, 10, true, false);
       ctx.fillStyle = '#fff';
-      ctx.font = '13px Arial';
+      ctx.font = `700 13px ${UI_FONT}`;
       ctx.textAlign = 'center';
       ctx.fillText('SELECTED', x + cardW - 66, y + 41);
     }
@@ -1556,7 +1577,7 @@ function drawSoloTypeSelect() {
     ctx.restore();
   }
 
-  // Helper text
+  
   ctx.textAlign = "center";
   ctx.font = `500 15px ${UI_FONT}`;
   ctx.fillStyle = "rgba(255,255,255,0.7)";
@@ -1566,4 +1587,5 @@ function drawSoloTypeSelect() {
 }
 
 window.drawSoloTypeSelect = drawSoloTypeSelect;
+
 

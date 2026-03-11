@@ -3,27 +3,27 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// Board layout
+
 const COLS = 10;
 const ROWS = 22;
 const VISIBLE_ROWS = 20;
 const BLOCK = 24;
 
-// SOLO board position (centered)
+
 const SOLO_BOARD_X = Math.floor(canvas.width / 2 - (COLS * BLOCK) / 2);
 const SOLO_BOARD_Y = 100;
 
-// VS board positions
+
 const VS_PLAYER_BOARD_X = 260;
 const VS_BOT_BOARD_X = canvas.width - 260 - COLS * BLOCK;
 const VS_BOARD_Y = 120;
 
-// Game state
+
 let gameState = "profileEntry";
 let gameMode = null;
 let botDifficultySelection = 1;
 
-// Leaderboard data
+
 const playerName = "Player";
 const playerCountry = "US";
 
@@ -32,33 +32,33 @@ let pendingScore = 0;
 let leaderboardData = null;
 let leaderboardLoaded = false;
 window.leaderboardMode = window.leaderboardMode || "solo";
-// Solo mode type: 'competitive' uploads score and disables undo, 'casual' enables undo and doesn't upload
+
 window.soloType = window.soloType || 'competitive';
-// Selection index used by the solo-type selection screen (0=Competitive,1=Casual)
+
 window.soloTypeSelection = window.soloTypeSelection || 0;
 
-// Time / FPS
+
 let lastTime = 0;
 let fps = 0;
 let fpsAccum = 0;
 let fpsFrames = 0;
 let fpsLast = 0;
 
-// Options state
+
 let showFPS = true;
 let backgroundGlowEnabled = true;
 let masterVolume = 1.0;
 
-// Menu selections
+
 let menuSelection = 0;
 let optionsSelection = 0;
 let controlsSelection = 0;
 let waitingForKeyBinding = null;
 
-// Cheat: bot drives the player
+
 let cheatActive = false;
 
-// Button bounds
+
 let topRightMenuButtons = [];
 let soloMenuButtonBounds = null;
 let soloRestartButtonBounds = null;
@@ -72,11 +72,11 @@ let leaderboardTabButtonBounds = [];
 let onlineArenaQueueButtonBounds = null;
 let onlineArenaBackButtonBounds = null;
 
-// Movement speed presets
+
 const SPEED_PRESETS = [
-  { name: "Slow",   gravity: 1200, das: 150, arr: 16, dcd: 0, sdf: 100, lock: 900 },
-  { name: "Normal", gravity: 800,  das: 110, arr: 10, dcd: 0, sdf: 40,  lock: 700 },
-  { name: "Fast",   gravity: 300,  das: 80,  arr: 6,  dcd: 0, sdf: 20,  lock: 500 },
+  { name: "Slow",   gravity: 1100, das: 140, arr: 18, dcd: 0, sdf: 30,  lock: 800 },
+  { name: "Normal", gravity: 800,  das: 100, arr: 0,  dcd: 0, sdf: 20,  lock: 500 },
+  { name: "Fast",   gravity: 450,  das: 80,  arr: 0,  dcd: 0, sdf: 30,  lock: 450 },
 ];
 
 let speedPresetIndex = 1;
@@ -178,7 +178,7 @@ function setCustomPlayerSpeeds(dasMs, arrMs, dcdMs) {
   if (solo) { solo.das = dasVal; solo.arr = arrVal; solo.dcd = dcdVal; }
   if (player) { player.das = dasVal; player.arr = arrVal; player.dcd = dcdVal; }
   if (bot) { bot.das = dasVal; bot.arr = arrVal; bot.dcd = dcdVal; }
-  // mirror to window so UI can read the current values
+  
   window.CUSTOM_DAS = CUSTOM_DAS;
   window.CUSTOM_ARR = CUSTOM_ARR;
   window.CUSTOM_DCD = CUSTOM_DCD;
@@ -187,23 +187,23 @@ window.setCustomPlayerSpeeds = setCustomPlayerSpeeds;
 window.setSdf = setSdf;
 window.setSoftDropSpeed = setSdf;
 
-// expose current custom values on window for UI to read
+
 window.CUSTOM_DAS = CUSTOM_DAS;
 window.CUSTOM_ARR = CUSTOM_ARR;
 window.CUSTOM_DCD = CUSTOM_DCD;
 window.CUSTOM_SDF = CUSTOM_SDF;
 window.CUSTOM_SOFT_DROP_SPEED = CUSTOM_SDF;
 
-// Recalculate per-player speeds based on level (called when level/time changes)
+
 function recalcPlayerSpeeds(pState) {
   if (!pState) return;
-  // Gravity speeds up with level; clamp to a minimum so it doesn't become instant
+  
   const baseGravity = GRAVITY_DELAY;
   const levelFactor = Math.pow(0.92, Math.max(0, pState.level - 1));
   pState.gravityDelay = Math.max(50, Math.round(baseGravity * levelFactor));
 }
 
-// Bot difficulty defaults
+
 let botDifficulty = 1;
 let BOT_MOVE_INTERVAL = 1.0;
 let BOT_DROP_INTERVAL = 1.0;
@@ -214,7 +214,7 @@ let BOT_AGGRESSION = 0.5;
 
 function applyBotDifficulty() {
   if (botDifficulty === 0) {
-    // EASY: very beatable for most players.
+    
     BOT_MOVE_INTERVAL = 0.95;
     BOT_DROP_INTERVAL = 0.75;
     BOT_RETHINK_CHANCE = 0.28;
@@ -222,7 +222,7 @@ function applyBotDifficulty() {
     BOT_PLACEMENT_ACCURACY = 0.50;
     BOT_AGGRESSION = 0.28;
   } else if (botDifficulty === 1) {
-    // MEDIUM: pro-like and consistent, but not impossible.
+    
     BOT_MOVE_INTERVAL = 0.24;
     BOT_DROP_INTERVAL = 0.18;
     BOT_RETHINK_CHANCE = 0.05;
@@ -230,7 +230,7 @@ function applyBotDifficulty() {
     BOT_PLACEMENT_ACCURACY = 0.93;
     BOT_AGGRESSION = 0.74;
   } else if (botDifficulty === 2) {
-    // HARD: near-perfect and relentless.
+    
     BOT_MOVE_INTERVAL = 0.025;
     BOT_DROP_INTERVAL = 0.02;
     BOT_RETHINK_CHANCE = 0.0;
@@ -252,6 +252,23 @@ applyBotDifficulty();
 const keys = { left: false, right: false, softDrop: false, hardDrop: false };
 
 const THEMES = {
+  tetrio: {
+    name: "TETR.IO Inspired",
+    titleLabel: "TETRIS+",
+    backgroundGradient: ["#0b0f1a", "#04060c"],
+    boardBg: "#0d1016",
+    gridColor: "rgba(255,255,255,0.05)",
+    hudTextColor: "#e8f2ff",
+    holdNextBg: "#0f1420",
+    garbageColor: "#2e3444",
+    glowColor: "rgba(120, 200, 255, 0.7)",
+    menuLogoColor: "#e8f2ff",
+    menuLogoShadow: "rgba(80, 170, 255, 0.95)",
+    menuButtonColors: ["#5cc8ff","#72ffd6","#7aa7ff","#5b7dff","#b58bff"],
+    menuBannerBg: "rgba(9,14,24,0.82)",
+    menuBannerAccent: "#66d5ff",
+    pieceColors: { I: "#4ddcff", O: "#ffe869", T: "#b178ff", S: "#6cff7f", Z: "#ff6b6b", J: "#6ea2ff", L: "#ffb865" }
+  },
   regular: {
     name: "Regular",
     titleLabel: "TETRIS+",
@@ -339,7 +356,7 @@ const THEMES = {
   }
 };
 
-let currentThemeKey = "regular";
+let currentThemeKey = "tetrio";
 let currentTheme = THEMES[currentThemeKey];
 
 const TETROMINOES = {
@@ -425,17 +442,17 @@ function getPieceColor(type) {
   return TETROMINOES[type].baseColor;
 }
 
-// FX hooks will be added by fx.js via fxAddOverlay etc.
-// For safety, ensure overlays for current theme are set up when theme changes
+
+
 function setupThemeOverlays() {
-  // Clear previous overlays to avoid stacking
+  
   if (window.fxClearOverlays) window.fxClearOverlays();
 
-  // Re-register overlays that are static across themes
-  // (fxAddOverlay calls are in ui.js where theme-specific overlays are added)
+  
+  
 }
 
-// Board and player state
+
 function createEmptyBoard() {
   const m = [];
   for (let r = 0; r < ROWS; r++) {
@@ -469,7 +486,7 @@ function createPlayerState() {
     dasDir: 0,
     dasTime: 0,
     arrTime: 0,
-    // per-player timing overrides (allow personalized ARR/DAS/gravity)
+    
     arr: getCurrentArr(),
     das: getCurrentDas(),
     dcd: getCurrentDcd(),
@@ -499,7 +516,7 @@ let solo = createPlayerState();
 let player = createPlayerState();
 let bot = createPlayerState();
 
-// SOLO history for undo/redo
+
 let soloUndoStack = [];
 let soloRedoStack = [];
 const MAX_UNDO_STATES = 80;
@@ -546,7 +563,7 @@ function redoSolo() {
   setTimeout(() => { isUndoingOrRedoing = false; }, 50);
 }
 
-// Popups
+
 let popups = [];
 
 function generateShape(piece, rot) {
@@ -582,7 +599,7 @@ function submitCompetitiveScoreAndOpenLeaderboard(score) {
     try {
       if (window.submitScore) await window.submitScore(profileName, finalScore, playerCountry);
     } catch (e) {
-      // submitScore already handles offline queueing/errors.
+      
     }
     try {
       if (window.loadLeaderboard) {
@@ -617,7 +634,7 @@ function spawnPiece(pState) {
       if (window.soloType === 'competitive') {
         submitCompetitiveScoreAndOpenLeaderboard(pState.score);
       } else {
-        // casual: go to gameover without prompting for leaderboard name
+        
         gameState = "gameover";
       }
     } else {
@@ -686,7 +703,7 @@ function clearLines(pState) {
   pState.lastAttackAt = performance.now();
 
   if (gameMode === "vsBot" && send > 0) {
-    // Attack cancels your own pending garbage first, then sends the rest.
+    
     let outgoing = send;
     if (pState.garbageQueue > 0) {
       const canceled = Math.min(pState.garbageQueue, outgoing);
@@ -746,7 +763,7 @@ function garbageForClear(linesCleared, tSpin, combo, b2b, allClear = false) {
 
   if (tSpin.type === "TSPIN") {
     if (tSpin.mini) {
-      // Closer to TETR.IO/Guideline feel: mini single is weak.
+      
       if (linesCleared === 1) base = 0;
       else if (linesCleared === 2) base = 1;
     } else {
@@ -763,11 +780,11 @@ function garbageForClear(linesCleared, tSpin, combo, b2b, allClear = false) {
 
   let b2bBonus = 0;
   if (b2b >= 2 && (linesCleared === 4 || tSpin.type)) {
-    // Bonus starts on the second difficult clear in the chain.
+    
     b2bBonus = 1 + Math.min(2, Math.floor((b2b - 2) / 4));
   }
 
-  // REN/combo bonus table (ren = combo - 1), tuned toward TETR.IO-like pacing.
+  
   const ren = Math.max(0, combo - 1);
   const comboTable = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5];
   const comboBonus = (ren < comboTable.length) ? comboTable[ren] : 5;
@@ -951,7 +968,7 @@ function drawPopups() {
       ctx.textBaseline = "middle";
       ctx.fillText(p.icon || "", x + 8, y + h / 2 + 0.5);
 
-      // Small label under icon keeps meaning clear while still icon-first.
+      
       ctx.fillStyle = "rgba(255,255,255,0.78)";
       ctx.font = "bold 8px Arial";
       ctx.fillText(p.label || "", x + 28, y + h / 2 + 0.5);
@@ -978,7 +995,7 @@ function drawPopups() {
   }
 }
 
-// Movement helpers used by bot.js and input handlers
+
 function moveHoriz(pState, dir) {
   const nx = pState.pieceX + dir;
   if (canPlace(pState, nx, pState.pieceY, pState.rotation)) {
@@ -989,9 +1006,38 @@ function moveHoriz(pState, dir) {
   return false;
 }
 
+const SRS_KICKS_JLSTZ = {
+  "0>1": [[0,0], [-1,0], [-1,1], [0,-2], [-1,-2]],
+  "1>0": [[0,0], [1,0], [1,-1], [0,2], [1,2]],
+  "1>2": [[0,0], [1,0], [1,-1], [0,2], [1,2]],
+  "2>1": [[0,0], [-1,0], [-1,1], [0,-2], [-1,-2]],
+  "2>3": [[0,0], [1,0], [1,1], [0,-2], [1,-2]],
+  "3>2": [[0,0], [-1,0], [-1,-1], [0,2], [-1,2]],
+  "3>0": [[0,0], [-1,0], [-1,-1], [0,2], [-1,2]],
+  "0>3": [[0,0], [1,0], [1,1], [0,-2], [1,-2]],
+};
+
+const SRS_KICKS_I = {
+  "0>1": [[0,0], [-2,0], [1,0], [-2,-1], [1,2]],
+  "1>0": [[0,0], [2,0], [-1,0], [2,1], [-1,-2]],
+  "1>2": [[0,0], [-1,0], [2,0], [-1,2], [2,-1]],
+  "2>1": [[0,0], [1,0], [-2,0], [1,-2], [-2,1]],
+  "2>3": [[0,0], [2,0], [-1,0], [2,1], [-1,-2]],
+  "3>2": [[0,0], [-2,0], [1,0], [-2,-1], [1,2]],
+  "3>0": [[0,0], [1,0], [-2,0], [1,-2], [-2,1]],
+  "0>3": [[0,0], [-1,0], [2,0], [-1,2], [2,-1]],
+};
+
+function getSrsKicks(piece, fromRot, toRot) {
+  if (piece === "O") return [[0,0]];
+  const key = `${fromRot}>${toRot}`;
+  if (piece === "I") return SRS_KICKS_I[key] || [[0,0]];
+  return SRS_KICKS_JLSTZ[key] || [[0,0]];
+}
+
 function rotate(pState, dir) {
   const newRot = (pState.rotation + dir + 4) % 4;
-  const kicks = TETROMINOES[pState.piece].kicks;
+  const kicks = getSrsKicks(pState.piece, pState.rotation, newRot);
 
   for (const [kx, ky] of kicks) {
     const nx = pState.pieceX + kx;
@@ -1003,12 +1049,16 @@ function rotate(pState, dir) {
       pState.rotation = newRot;
       pState.lastMoveWasRotation = true;
       pState.lastKickUsed = !(kx === 0 && ky === 0);
-      return;
+      return true;
     }
   }
+  return false;
 }
 
-function rotate180(pState) { rotate(pState, 2); }
+function rotate180(pState) {
+  if (!rotate(pState, 1)) return;
+  rotate(pState, 1);
+}
 
 function holdPiece(pState) {
   if (!pState.canHold) return;
@@ -1059,9 +1109,10 @@ function beginHorizontalInput(pState, dir, switchedDirection = false) {
   }
 }
 
-// Expose core functions used by other modules
+
 window.canvas = canvas;
 window.ctx = ctx;
+window.COLS = COLS;
 window.COLs = COLS;
 window.ROWS = ROWS;
 window.VISIBLE_ROWS = VISIBLE_ROWS;
@@ -1088,7 +1139,7 @@ window.applySpeedPreset = applySpeedPreset;
 window.applyBotDifficulty = applyBotDifficulty;
 window.setupThemeOverlays = setupThemeOverlays;
 
-// All possible actions the player can bind
+
 const ACTIONS = [
   "moveLeft",
   "moveRight",
@@ -1104,15 +1155,15 @@ const ACTIONS = [
   "redo"
 ];
 
-// Default keybindings
+
 const DEFAULT_CONTROLS_CONFIG = {
   moveLeft: "ArrowLeft",
   moveRight: "ArrowRight",
-  softDrop: "s",
+  softDrop: "ArrowDown",
   hardDrop: "Space",
   rotateCW: "ArrowUp",
-  rotateCCW: "ArrowDown",
-  reverseSpin: "A",
+  rotateCCW: "z",
+  reverseSpin: "a",
   hold: "Shift",
   pause: "P",
   restart: "R",
@@ -1122,7 +1173,7 @@ const DEFAULT_CONTROLS_CONFIG = {
 let controlsConfig = { ...DEFAULT_CONTROLS_CONFIG };
 
 const DEFAULT_SETTINGS = {
-  currentThemeKey: "regular",
+  currentThemeKey: "tetrio",
   speedPresetIndex: 1,
   customDas: null,
   customArr: null,
@@ -1155,7 +1206,7 @@ function writeSettingsProfiles(profiles) {
   try {
     localStorage.setItem(SETTINGS_PROFILES_KEY, JSON.stringify(profiles || {}));
   } catch (e) {
-    // Ignore storage write failures.
+    
   }
 }
 
@@ -1228,7 +1279,7 @@ function setActiveProfileName(name) {
   try {
     localStorage.setItem(SETTINGS_ACTIVE_PROFILE_KEY, activeProfileName);
   } catch (e) {
-    // Ignore storage write failures.
+    
   }
   return activeProfileName;
 }
@@ -1252,7 +1303,7 @@ function loadSettingsForProfile(name) {
   if (settings) {
     applySettingsObject(settings);
   } else {
-    // First-time profile: save true defaults for this name.
+    
     profiles[profile] = collectCurrentSettings();
     writeSettingsProfiles(profiles);
   }
@@ -1288,13 +1339,19 @@ function describeKeyEvent(e) {
 
 function actionFromKeyEvent(e) {
   const keyDesc = describeKeyEvent(e);
-  // Accept either exact combo match (e.g. Ctrl+z) OR base key match (ArrowRight)
+  
   const parts = keyDesc.split("+");
   const base = parts[parts.length - 1];
+  const hasModifier = parts.length > 1;
   for (const action of ACTIONS) {
     const cfg = (controlsConfig[action] || "").toLowerCase();
     if (!cfg) continue;
     if (cfg === keyDesc.toLowerCase()) return action;
+  }
+  if (hasModifier) return null;
+  for (const action of ACTIONS) {
+    const cfg = (controlsConfig[action] || "").toLowerCase();
+    if (!cfg) continue;
     if (cfg === base.toLowerCase()) return action;
   }
   return null;
@@ -1318,7 +1375,7 @@ function openLeaderboard(mode = "solo") {
 
 function handleMainMenuSelection() {
   if (menuSelection === 0) {
-    // Show solo type selector (competitive vs casual) before starting
+    
     gameState = 'soloTypeSelect';
     window.soloTypeSelection = 0;
   } else if (menuSelection === 1) {
@@ -1336,9 +1393,9 @@ function handleMainMenuSelection() {
   }
 }
 
-// ==========================
-// PLAYER UPDATE LOGIC (missing from split)
-// ==========================
+
+
+
 
 function updatePlayer(pState, now) {
   if (!pState.alive) return;
@@ -1347,7 +1404,7 @@ function updatePlayer(pState, now) {
     applyGarbage(pState);
   }
 
-  // Level can increase over time as well as by lines: every 60s = +1 level
+  
   const timeLevels = pState.startTime ? Math.floor((now - pState.startTime) / 60000) : 0;
   const linesBasedLevel = 1 + Math.floor(pState.lines / 10);
   const newLevel = linesBasedLevel + timeLevels;
@@ -1399,6 +1456,13 @@ function handleHorizontalMovement(pState, now) {
 
   if (!pState.arrTime) pState.arrTime = now;
 
+  if (localARR === 0) {
+    while (moveHoriz(pState, pState.dasDir)) {
+      pState.arrTime = now;
+    }
+    return;
+  }
+
   if (now - pState.arrTime >= localARR) {
     if (moveHoriz(pState, pState.dasDir)) {
       pState.arrTime = now;
@@ -1406,7 +1470,7 @@ function handleHorizontalMovement(pState, now) {
   }
 }
 
-// Expose globally
+
 window.updatePlayer = updatePlayer;
 window.handleHorizontalMovement = handleHorizontalMovement;
 window.describeKeyEvent = describeKeyEvent;

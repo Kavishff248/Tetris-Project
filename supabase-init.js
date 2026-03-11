@@ -1,6 +1,6 @@
 console.log("supabase-init.js LOADED");
 
-// Initialize Supabase client (support UMD bundles exposing either `supabase` or `Supabase`)
+
 const SUPABASE_URL = "https://wsaqhwsjmdvyhgpbvnvr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_sT2R5zxJ7tBPl8kr5rgE9g_1LG4Dmo0";
 
