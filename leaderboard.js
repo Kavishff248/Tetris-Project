@@ -56,7 +56,7 @@ window.flushLocalVsQueue = async function flushLocalVsQueue() {
         { skipQueueOnFail: true }
       );
     } catch (err) {
-      console.error("Error flushing queued 1v1 result:", err);
+      console.error("Error flushing queued bot 1v1 result:", err);
       window.queueLocalVsResult(entry);
     }
   }
@@ -199,15 +199,22 @@ window.submitVsResult = async function submitVsResult(
   options = {}
 ) {
   const playerName = (name || "").toString().trim();
+  const safePointsFor = Math.max(0, Number(pointsFor) || 0);
+  const safePointsAgainst = Math.max(0, Number(pointsAgainst) || 0);
+
   if (!playerName) return;
+  if (safePointsFor <= 10) {
+    console.log("Bot 1v1 score did not pass the >10 upload threshold");
+    return;
+  }
 
   const entry = {
     name: playerName,
     didWin: !!didWin,
     country: country || "US",
     opponentName: opponentName || "BOT",
-    pointsFor: Math.max(0, Number(pointsFor) || 0),
-    pointsAgainst: Math.max(0, Number(pointsAgainst) || 0),
+    pointsFor: safePointsFor,
+    pointsAgainst: safePointsAgainst,
     timestamp: Date.now()
   };
 
@@ -224,7 +231,7 @@ window.submitVsResult = async function submitVsResult(
       .maybeSingle();
 
     if (selectError) {
-      console.error("Supabase 1v1 select failed, queueing locally:", selectError);
+      console.error("Supabase bot 1v1 select failed, queueing locally:", selectError);
       if (!options.skipQueueOnFail) window.queueLocalVsResult(entry);
       return;
     }
@@ -269,7 +276,7 @@ window.submitVsResult = async function submitVsResult(
     }
 
     if (writeError) {
-      console.error("Supabase 1v1 write failed, queueing locally:", writeError);
+      console.error("Supabase bot 1v1 write failed, queueing locally:", writeError);
       if (!options.skipQueueOnFail) window.queueLocalVsResult(entry);
       return;
     }
@@ -278,7 +285,7 @@ window.submitVsResult = async function submitVsResult(
       await window.loadLeaderboard("vs1v1");
     }
   } catch (err) {
-    console.error("Error submitting 1v1 result:", err);
+    console.error("Error submitting bot 1v1 result:", err);
     if (!options.skipQueueOnFail) window.queueLocalVsResult(entry);
   }
 };

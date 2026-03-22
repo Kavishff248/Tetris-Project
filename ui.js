@@ -10,6 +10,22 @@ function drawBackgroundGradient() {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  const now = performance.now() * 0.00012;
+  const ambientX = canvas.width * (0.2 + Math.sin(now) * 0.06);
+  const ambientY = canvas.height * (0.18 + Math.cos(now * 1.4) * 0.05);
+  const ambient = ctx.createRadialGradient(
+    ambientX,
+    ambientY,
+    20,
+    ambientX,
+    ambientY,
+    canvas.width * 0.75
+  );
+  ambient.addColorStop(0, "rgba(255,255,255,0.08)");
+  ambient.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = ambient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   const glow = ctx.createRadialGradient(
     canvas.width * 0.15,
     canvas.height * 0.2,
@@ -30,12 +46,20 @@ function drawBackgroundGradient() {
   }
 
   ctx.save();
-  ctx.strokeStyle = "rgba(120, 200, 255, 0.04)";
+  ctx.strokeStyle = "rgba(120, 200, 255, 0.035)";
   ctx.lineWidth = 1;
   for (let x = -canvas.height; x < canvas.width; x += 80) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x + canvas.height, canvas.height);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = "rgba(255,255,255,0.018)";
+  for (let x = 0; x < canvas.width; x += 96) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
     ctx.stroke();
   }
   ctx.restore();
@@ -176,8 +200,24 @@ function drawMiniPiece(type, cx, cy) {
 function drawBoard(pState, boardX, boardY, theme) {
   ctx.save();
 
+  const now = performance.now();
+  const impactLeft = Math.max(0, (pState.impactUntil || 0) - now);
+  const impactRatio = impactLeft > 0 ? impactLeft / 180 : 0;
+  const shake = (pState.impactStrength || 0) * impactRatio;
+  const offsetX = shake > 0 ? Math.sin(now * 0.08) * shake * 1.8 : 0;
+  const offsetY = shake > 0 ? Math.cos(now * 0.11) * shake * 1.2 : 0;
+  boardX += offsetX;
+  boardY += offsetY;
+
   drawGlassPanel(boardX - 6, boardY - 6, COLS * BLOCK + 12, VISIBLE_ROWS * BLOCK + 12, 10, theme.glowColor);
   ctx.fillStyle = theme.boardBg;
+  ctx.fillRect(boardX, boardY, COLS * BLOCK, VISIBLE_ROWS * BLOCK);
+
+  const boardGlow = ctx.createLinearGradient(boardX, boardY, boardX, boardY + VISIBLE_ROWS * BLOCK);
+  boardGlow.addColorStop(0, "rgba(255,255,255,0.07)");
+  boardGlow.addColorStop(0.35, "rgba(255,255,255,0.02)");
+  boardGlow.addColorStop(1, "rgba(0,0,0,0.12)");
+  ctx.fillStyle = boardGlow;
   ctx.fillRect(boardX, boardY, COLS * BLOCK, VISIBLE_ROWS * BLOCK);
 
   ctx.shadowColor = theme.glowColor;
@@ -231,14 +271,39 @@ function drawBoard(pState, boardX, boardY, theme) {
   }
   ctx.globalAlpha = 1;
 
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = hexToRgba(getPieceColor(pState.piece), 0.8);
+  ctx.lineWidth = 1.5;
+  for (let y = 0; y < shape.length; y++) {
+    for (let x = 0; x < shape[y].length; x++) {
+      if (!shape[y][x]) continue;
+      const gx = pState.pieceX + x;
+      const gy = pState.pieceY + y + ghostDy;
+      if (gy < 2) continue;
+      ctx.strokeRect(boardX + gx * BLOCK + 2, boardY + (gy - 2) * BLOCK + 2, BLOCK - 4, BLOCK - 4);
+    }
+  }
+  ctx.restore();
+
   for (let y = 0; y < shape.length; y++) {
     for (let x = 0; x < shape[y].length; x++) {
       if (!shape[y][x]) continue;
       const px = pState.pieceX + x;
       const py = pState.pieceY + y;
       if (py < 2) continue;
+      ctx.save();
+      ctx.shadowColor = getPieceColor(pState.piece);
+      ctx.shadowBlur = 12;
       drawBlock(boardX + px * BLOCK, boardY + (py - 2) * BLOCK, getPieceColor(pState.piece));
+      ctx.restore();
     }
+  }
+
+  if ((pState.clearFlashUntil || 0) > now) {
+    const flashAlpha = Math.min(0.22, ((pState.clearFlashUntil - now) / 180) * 0.22);
+    ctx.fillStyle = hexToRgba(pState.clearFlashColor || "#ffffff", flashAlpha);
+    ctx.fillRect(boardX, boardY, COLS * BLOCK, VISIBLE_ROWS * BLOCK);
   }
 
   
@@ -342,11 +407,9 @@ function drawHUDVS() {
   ctx.fillStyle = currentTheme.hudTextColor;
   ctx.font = `700 18px ${UI_FONT}`;
   ctx.textAlign = "center";
-  const isOnline = gameMode === "online1v1";
-  const rightLabel = isOnline ? ((window.onlineOpponentName || "Opponent").substring(0, 12)) : "BOT";
 
   ctx.fillText(`YOU`, VS_PLAYER_BOARD_X + (COLS * BLOCK) / 2, 80);
-  ctx.fillText(rightLabel, VS_BOT_BOARD_X + (COLS * BLOCK) / 2, 80);
+  ctx.fillText("BOT", VS_BOT_BOARD_X + (COLS * BLOCK) / 2, 80);
 
   ctx.font = `600 16px ${UI_FONT}`;
   ctx.fillText(
@@ -385,9 +448,7 @@ function drawMainMenu(time) {
   const labels = [
     "Single Player",
     "Bot Mode",
-    "Online 1v1",
     "Leaderboards",
-    "1v1 Arena",
     "Controls",
     "Options"
   ];
@@ -403,7 +464,7 @@ function drawMainMenu(time) {
   ctx.shadowBlur = 0;
   ctx.fillStyle = "rgba(225,242,255,0.86)";
   ctx.font = `600 22px ${UI_FONT}`;
-  ctx.fillText("Clean stack. Fast queue. Global arena.", leftX + 2, leftY + 104);
+  ctx.fillText("Clean stack. Fast rounds. Solo focus.", leftX + 2, leftY + 104);
   ctx.font = `500 15px ${UI_FONT}`;
   ctx.fillStyle = "rgba(215,235,255,0.72)";
   ctx.fillText("UP/DOWN + ENTER or mouse click", leftX + 2, leftY + 142);
@@ -472,106 +533,6 @@ function drawMainMenu(time) {
   });
 }
 
-function drawOnlineArenaScreen(time) {
-  drawBackgroundGradient();
-  onlineArenaQueueButtonBounds = null;
-  onlineArenaBackButtonBounds = null;
-
-  const online = window.online1v1 ? window.online1v1.getState() : null;
-  const status = online ? online.status : "Online module not loaded";
-  const queueing = !!(online && online.queueing);
-  const matched = !!(online && online.matched);
-
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#f3fbff";
-  ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.8);
-  ctx.shadowBlur = 24;
-  ctx.font = `900 52px ${UI_FONT_HEAVY}`;
-  ctx.fillText("ONLINE 1V1", canvas.width / 2, 90);
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "rgba(220,240,255,0.78)";
-  ctx.font = `600 14px ${UI_FONT}`;
-  ctx.fillText("Realtime queue and matchmaking (MVP scaffold)", canvas.width / 2, 116);
-  ctx.restore();
-
-  const panelX = canvas.width / 2 - 420;
-  const panelY = 150;
-  const panelW = 840;
-  const panelH = 420;
-
-  drawGlassPanel(panelX, panelY, panelW, panelH, 16, currentTheme.glowColor);
-
-  ctx.save();
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#eaf7ff";
-  ctx.font = `700 20px ${UI_FONT}`;
-  ctx.fillText("Connection", panelX + 30, panelY + 56);
-
-  ctx.font = `600 16px ${UI_FONT}`;
-  ctx.fillStyle = "rgba(230,245,255,0.9)";
-  ctx.fillText(`Status: ${status}`, panelX + 30, panelY + 92);
-  ctx.fillText(`Server: ${(online && online.serverUrl) || "ws://localhost:8080"}`, panelX + 30, panelY + 124);
-  ctx.fillText(`Region: ${(online && online.region) || "global"}`, panelX + 30, panelY + 156);
-  if (online && online.opponent) {
-    ctx.fillText(`Opponent: ${online.opponent.name || "Unknown"}`, panelX + 30, panelY + 188);
-  }
-  if (online && online.roomId) {
-    ctx.fillText(`Room: ${online.roomId}`, panelX + 30, panelY + 220);
-  }
-  ctx.restore();
-
-  const queueW = 270;
-  const queueH = 50;
-  const queueX = canvas.width / 2 - queueW / 2;
-  const queueY = panelY + panelH - 120;
-  onlineArenaQueueButtonBounds = { x: queueX, y: queueY, w: queueW, h: queueH };
-
-  ctx.save();
-  const queueGrad = ctx.createLinearGradient(queueX, queueY, queueX, queueY + queueH);
-  queueGrad.addColorStop(0, queueing ? "rgba(255,130,130,0.3)" : "rgba(100,190,255,0.3)");
-  queueGrad.addColorStop(1, queueing ? "rgba(180,70,70,0.25)" : "rgba(40,110,200,0.25)");
-  ctx.fillStyle = queueGrad;
-  roundRect(ctx, queueX, queueY, queueW, queueH, 12, true, false);
-  ctx.strokeStyle = queueing ? "rgba(255,160,160,0.9)" : hexToRgba(currentTheme.glowColor, 0.9);
-  ctx.lineWidth = 2;
-  roundRect(ctx, queueX, queueY, queueW, queueH, 12, false, true);
-  ctx.fillStyle = "#f3fbff";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = `700 16px ${UI_FONT}`;
-  ctx.fillText(queueing ? "LEAVE QUEUE" : "JOIN QUEUE", queueX + queueW / 2, queueY + queueH / 2 + 1);
-  ctx.restore();
-
-  const backW = 220;
-  const backH = 38;
-  const backX = canvas.width / 2 - backW / 2;
-  const backY = queueY + 68;
-  onlineArenaBackButtonBounds = { x: backX, y: backY, w: backW, h: backH };
-
-  ctx.save();
-  ctx.fillStyle = "rgba(90,130,200,0.2)";
-  roundRect(ctx, backX, backY, backW, backH, 10, true, false);
-  ctx.strokeStyle = "rgba(170,210,255,0.7)";
-  roundRect(ctx, backX, backY, backW, backH, 10, false, true);
-  ctx.fillStyle = "#e9f6ff";
-  ctx.font = `700 14px ${UI_FONT}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("BACK TO MENU", backX + backW / 2, backY + backH / 2 + 1);
-  ctx.restore();
-
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(255,255,255,0.72)";
-  ctx.font = `500 14px ${UI_FONT}`;
-  const help = matched
-    ? "Match found. Integration hooks are active; wire gameplay sync next."
-    : "ENTER toggles queue. ESC returns to menu.";
-  ctx.fillText(help, canvas.width / 2, canvas.height - 24);
-  ctx.restore();
-}
-
 
 async function drawLeaderboardScreen(time) {
   drawBackgroundGradient();
@@ -592,12 +553,12 @@ async function drawLeaderboardScreen(time) {
   ctx.shadowBlur = 0;
   ctx.fillStyle = "rgba(220,240,255,0.75)";
   ctx.font = `600 14px ${UI_FONT}`;
-  ctx.fillText(mode === "vs1v1" ? "Top 1v1 players by rating" : "Top solo score players", canvas.width / 2, 108);
+  ctx.fillText(mode === "vs1v1" ? "Top bot 1v1 players" : "Top solo score players", canvas.width / 2, 108);
   ctx.restore();
 
   const tabs = [
     { label: "SOLO", mode: "solo" },
-    { label: "1V1 ARENA", mode: "vs1v1" }
+    { label: "BOT 1V1", mode: "vs1v1" }
   ];
   const tabsY = 124;
   const tabW = 170;
@@ -784,7 +745,7 @@ async function drawLeaderboardScreen(time) {
     ctx.font = `600 20px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(mode === "vs1v1" ? "No 1v1 matches yet." : "No solo scores yet.", canvas.width / 2, containerY + containerH / 2);
+    ctx.fillText(mode === "vs1v1" ? "No bot 1v1 matches yet." : "No solo scores yet.", canvas.width / 2, containerY + containerH / 2);
     ctx.restore();
   }
 
@@ -1464,7 +1425,6 @@ window.drawHold = drawHold;
 window.drawHUDSolo = drawHUDSolo;
 window.drawHUDVS = drawHUDVS;
 window.drawMainMenu = drawMainMenu;
-window.drawOnlineArenaScreen = drawOnlineArenaScreen;
 window.drawLeaderboardScreen = drawLeaderboardScreen;
 window.drawOptions = drawOptions;
 window.drawBotDifficultySelect = drawBotDifficultySelect;
@@ -1587,5 +1547,3 @@ function drawSoloTypeSelect() {
 }
 
 window.drawSoloTypeSelect = drawSoloTypeSelect;
-
-

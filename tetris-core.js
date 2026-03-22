@@ -69,14 +69,12 @@ let controlItemBounds = [];
 let soloTypeCardBounds = [];
 let leaderboardBackButtonBounds = null;
 let leaderboardTabButtonBounds = [];
-let onlineArenaQueueButtonBounds = null;
-let onlineArenaBackButtonBounds = null;
 
 
 const SPEED_PRESETS = [
-  { name: "Slow",   gravity: 1100, das: 140, arr: 18, dcd: 0, sdf: 30,  lock: 800 },
-  { name: "Normal", gravity: 800,  das: 100, arr: 0,  dcd: 0, sdf: 20,  lock: 500 },
-  { name: "Fast",   gravity: 450,  das: 80,  arr: 0,  dcd: 0, sdf: 30,  lock: 450 },
+  { name: "Slow",   gravity: 950, das: 110, arr: 10, dcd: 0, sdf: 30, lock: 700 },
+  { name: "Normal", gravity: 650, das: 85,  arr: 0,  dcd: 0, sdf: 24, lock: 430 },
+  { name: "Fast",   gravity: 360, das: 65,  arr: 0,  dcd: 0, sdf: 30, lock: 320 },
 ];
 
 let speedPresetIndex = 1;
@@ -445,11 +443,52 @@ function getPieceColor(type) {
 
 
 function setupThemeOverlays() {
-  
   if (window.fxClearOverlays) window.fxClearOverlays();
+  if (!window.fxAddOverlay) return;
 
-  
-  
+  window.fxAddOverlay((ctx) => {
+    const now = performance.now() * 0.001;
+
+    ctx.save();
+
+    const drift = Math.sin(now * 0.35) * canvas.width * 0.04;
+    const haze = ctx.createRadialGradient(
+      canvas.width * 0.18 + drift,
+      canvas.height * 0.16,
+      30,
+      canvas.width * 0.18 + drift,
+      canvas.height * 0.16,
+      canvas.width * 0.6
+    );
+    haze.addColorStop(0, "rgba(255,255,255,0.06)");
+    haze.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = "rgba(180,220,255,0.7)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+      const y = ((now * 22 + i * 170) % (canvas.height + 140)) - 70;
+      ctx.beginPath();
+      ctx.moveTo(-30, y);
+      ctx.lineTo(canvas.width + 30, y + 24);
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = 0.22;
+    for (let i = 0; i < 7; i++) {
+      const px = ((now * (8 + i) * 18 + i * 170) % (canvas.width + 160)) - 80;
+      const py = 90 + i * 88 + Math.sin(now * (0.8 + i * 0.09)) * 20;
+      const orb = ctx.createRadialGradient(px, py, 0, px, py, 18 + i * 2);
+      orb.addColorStop(0, "rgba(255,255,255,0.18)");
+      orb.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = orb;
+      ctx.fillRect(px - 40, py - 40, 80, 80);
+    }
+
+    ctx.restore();
+  });
 }
 
 
@@ -505,6 +544,10 @@ function createPlayerState() {
     garbageQueue: 0,
     garbageHole: (Math.random() * COLS) | 0,
     garbageFlashUntil: 0,
+    impactUntil: 0,
+    impactStrength: 0,
+    clearFlashUntil: 0,
+    clearFlashColor: "#ffffff",
     _target: null,
     _targetPiece: null,
     _nextMove: NaN,
@@ -521,6 +564,34 @@ let soloUndoStack = [];
 let soloRedoStack = [];
 const MAX_UNDO_STATES = 80;
 let isUndoingOrRedoing = false;
+
+function triggerBoardImpact(pState, strength = 1, duration = 120, color = "#ffffff") {
+  if (!pState) return;
+  const now = performance.now();
+  pState.impactUntil = now + duration;
+  pState.impactStrength = Math.max(pState.impactStrength || 0, strength);
+  pState.clearFlashUntil = now + Math.max(80, duration);
+  pState.clearFlashColor = color || "#ffffff";
+}
+
+function spawnImpactParticles(pState, color, amount = 8) {
+  if (!window.fxAddParticle || !window.Particle) return;
+  const anchor = popupAnchorForPlayer(pState);
+  for (let i = 0; i < amount; i++) {
+    const angle = (-0.4 + (i / Math.max(1, amount - 1)) * 0.8) * Math.PI;
+    const speed = 60 + Math.random() * 120;
+    window.fxAddParticle(new window.Particle(
+      anchor.centerX + (Math.random() - 0.5) * COLS * BLOCK * 0.6,
+      anchor.boardY + VISIBLE_ROWS * BLOCK - 12 - Math.random() * 28,
+      Math.cos(angle) * speed,
+      -Math.abs(Math.sin(angle) * speed) - 25 - Math.random() * 45,
+      0.28 + Math.random() * 0.24,
+      3 + Math.random() * 4,
+      color || "#ffffff",
+      "impact"
+    ));
+  }
+}
 
 function clonePlayerState(pState) {
   return JSON.parse(JSON.stringify(pState));
@@ -653,15 +724,19 @@ function hardDropDistance(pState) {
 
 function lockPiece(pState) {
   const shape = generateShape(pState.piece, pState.rotation);
+  const pieceColor = getPieceColor(pState.piece);
   for (let y = 0; y < shape.length; y++) {
     for (let x = 0; x < shape[y].length; x++) {
       if (!shape[y][x]) continue;
       const bx = pState.pieceX + x;
       const by = pState.pieceY + y;
       if (by < 0) continue;
-      pState.board[by][bx] = { type: pState.piece, color: getPieceColor(pState.piece) };
+      pState.board[by][bx] = { type: pState.piece, color: pieceColor };
     }
   }
+
+  triggerBoardImpact(pState, 0.65, 110, pieceColor);
+  spawnImpactParticles(pState, pieceColor, 10);
 
   const clearInfo = clearLines(pState);
   scoreAfterLock(pState, clearInfo);
@@ -702,6 +777,17 @@ function clearLines(pState) {
   pState.lastAttack = send;
   pState.lastAttackAt = performance.now();
 
+  if (linesCleared > 0) {
+    const flashColor = allClear ? "#fff5a8" : (tSpin.type ? "#b88cff" : "#7dd9ff");
+    triggerBoardImpact(
+      pState,
+      Math.min(1.6, 0.75 + linesCleared * 0.18 + (allClear ? 0.35 : 0)),
+      180,
+      flashColor
+    );
+    spawnImpactParticles(pState, flashColor, 12 + linesCleared * 4 + (allClear ? 8 : 0));
+  }
+
   if (gameMode === "vsBot" && send > 0) {
     
     let outgoing = send;
@@ -718,6 +804,8 @@ function clearLines(pState) {
     if (opponent && outgoing > 0) {
       opponent.garbageQueue += outgoing;
       opponent.garbageFlashUntil = performance.now() + 320;
+      triggerBoardImpact(opponent, Math.min(1.25, 0.45 + outgoing * 0.16), 140, "#ff9b63");
+      spawnImpactParticles(opponent, "#ff9b63", 8 + outgoing * 2);
       spawnBadgePopup(opponent, "GAR", `+${outgoing}`, "#ff8a5c");
     }
   }
@@ -815,7 +903,11 @@ function applyGarbage(pState) {
   }
 
   pState.garbageQueue -= count;
-  if (count > 0) spawnBadgePopup(pState, "GAR", `+${count}`, "#ff9f43");
+  if (count > 0) {
+    triggerBoardImpact(pState, Math.min(1.45, 0.6 + count * 0.12), 170, "#ff9f43");
+    spawnImpactParticles(pState, "#ff9f43", 10 + count * 2);
+    spawnBadgePopup(pState, "GAR", `+${count}`, "#ff9f43");
+  }
 }
 
 function scoreAfterLock(pState, { linesCleared, tSpin }) {
@@ -947,8 +1039,8 @@ function drawPopups() {
     if (p.kind === "badge") {
       const lift = (p.t / p.life) * 16;
       const pulse = 1 + (1 - p.t / p.life) * 0.08;
-      const w = 96;
-      const h = 22;
+      const w = 104;
+      const h = 24;
       const x = p.x - w / 2;
       const y = p.y - lift;
 
@@ -963,31 +1055,31 @@ function drawPopups() {
       ctx.strokeRect(x, y, w, h);
 
       ctx.fillStyle = p.color || "#fff";
-      ctx.font = "bold 13px Arial";
+      ctx.font = '700 12px "Rajdhani", sans-serif';
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
-      ctx.fillText(p.icon || "", x + 8, y + h / 2 + 0.5);
+      ctx.fillText((p.label || p.icon || "?").charAt(0), x + 8, y + h / 2 + 0.5);
 
       
       ctx.fillStyle = "rgba(255,255,255,0.78)";
-      ctx.font = "bold 8px Arial";
+      ctx.font = '700 8px "Rajdhani", sans-serif';
       ctx.fillText(p.label || "", x + 28, y + h / 2 + 0.5);
 
       ctx.fillStyle = p.color || "#fff";
-      ctx.font = "bold 12px Arial";
+      ctx.font = '700 13px "Rajdhani", sans-serif';
       ctx.textAlign = "right";
       ctx.fillText(p.value || "", x + w - 8, y + h / 2 + 0.5);
       ctx.restore();
       continue;
     }
 
-    ctx.font = "24px Arial";
+    ctx.font = '800 24px "Rajdhani", sans-serif';
     ctx.textAlign = "center";
     ctx.fillStyle = p.color;
     ctx.fillText(p.text, p.x, p.y - rise);
 
     if (p.sub) {
-      ctx.font = "16px Arial";
+      ctx.font = '700 14px "Rajdhani", sans-serif';
       ctx.fillStyle = "rgba(255,255,255,0.8)";
       ctx.fillText(p.sub, p.x, p.y - rise + 24);
     }
@@ -1381,14 +1473,10 @@ function handleMainMenuSelection() {
   } else if (menuSelection === 1) {
     gameState = "botDifficultySelect";
   } else if (menuSelection === 2) {
-    gameState = "onlineArena";
-  } else if (menuSelection === 3) {
     openLeaderboard("solo");
-  } else if (menuSelection === 4) {
-    openLeaderboard("vs1v1");
-  } else if (menuSelection === 5) {
+  } else if (menuSelection === 3) {
     gameState = "controls";
-  } else if (menuSelection === 6) {
+  } else if (menuSelection === 4) {
     gameState = "options";
   }
 }
