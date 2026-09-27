@@ -788,8 +788,7 @@ function clearLines(pState) {
     spawnImpactParticles(pState, flashColor, 12 + linesCleared * 4 + (allClear ? 8 : 0));
   }
 
-  if (gameMode === "vsBot" && send > 0) {
-    
+  if ((gameMode === "vsBot" || gameMode === "online") && send > 0) {
     let outgoing = send;
     if (pState.garbageQueue > 0) {
       const canceled = Math.min(pState.garbageQueue, outgoing);
@@ -797,16 +796,19 @@ function clearLines(pState) {
       outgoing -= canceled;
     }
 
-    let opponent = null;
-    if (pState === player) opponent = bot;
-    else if (pState === bot) opponent = player;
-
-    if (opponent && outgoing > 0) {
-      opponent.garbageQueue += outgoing;
-      opponent.garbageFlashUntil = performance.now() + 320;
-      triggerBoardImpact(opponent, Math.min(1.25, 0.45 + outgoing * 0.16), 140, "#ff9b63");
-      spawnImpactParticles(opponent, "#ff9b63", 8 + outgoing * 2);
-      spawnBadgePopup(opponent, "GAR", `+${outgoing}`, "#ff8a5c");
+    if (gameMode === "vsBot") {
+      let opponent = null;
+      if (pState === player) opponent = bot;
+      else if (pState === bot) opponent = player;
+      if (opponent && outgoing > 0) {
+        opponent.garbageQueue += outgoing;
+        opponent.garbageFlashUntil = performance.now() + 320;
+        triggerBoardImpact(opponent, Math.min(1.25, 0.45 + outgoing * 0.16), 140, "#ff9b63");
+        spawnImpactParticles(opponent, "#ff9b63", 8 + outgoing * 2);
+        spawnBadgePopup(opponent, "GAR", "+" + outgoing, "#ff8a5c");
+      }
+    } else if (gameMode === "online" && outgoing > 0 && window.online1v1) {
+      window.online1v1.sendAttack(outgoing);
     }
   }
 
