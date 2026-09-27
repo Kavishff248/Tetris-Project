@@ -450,7 +450,8 @@ function drawMainMenu(time) {
     "Bot Mode",
     "Leaderboards",
     "Controls",
-    "Options"
+    "Options",
+    "Online 1v1"
   ];
 
   ctx.save();
