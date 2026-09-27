@@ -903,13 +903,17 @@ function startVSBot() {
 
 function drawOnline(time) {
   drawBackgroundGradient();
+
   const onlineState = window.online1v1?.getState ? window.online1v1.getState() : {};
   const roomCode = onlineState.roomCode || "------";
   const opponent = onlineState.opponentName || "Opponent";
 
   if (gameState === "onlineCountdown") {
-    const remaining = Math.max(0, (window.onlineCountdownStartAt || Date.now()) - Date.now());
-    const number = remaining <= 700 ? "GO" : String(Math.max(1, Math.ceil((remaining - 700) / 1000)));
+    const startAt = Number(window.onlineCountdownStartAt) || (Date.now() + 4200);
+    const remaining = Math.max(0, startAt - Date.now());
+    const number = remaining <= 700
+      ? "GO"
+      : String(Math.max(1, Math.ceil((remaining - 700) / 1000)));
 
     ctx.save();
     ctx.textAlign = "center";
@@ -919,24 +923,35 @@ function drawOnline(time) {
     ctx.shadowBlur = 24;
     ctx.fillText("ONLINE 1V1", canvas.width / 2, 105);
     ctx.shadowBlur = 0;
+
     ctx.font = `600 18px ${UI_FONT}`;
     ctx.fillStyle = "rgba(225,240,255,.75)";
     ctx.fillText(`ROOM ${roomCode}`, canvas.width / 2, 145);
+
     ctx.font = `700 24px ${UI_FONT}`;
     ctx.fillStyle = "#fff";
-    ctx.fillText(`${window.getActiveProfileName ? window.getActiveProfileName() : "Player"}  VS  ${opponent}`, canvas.width / 2, 205);
+    const localName = window.getActiveProfileName
+      ? window.getActiveProfileName()
+      : "Player";
+    ctx.fillText(`${localName}  VS  ${opponent}`, canvas.width / 2, 205);
+
     ctx.font = `900 150px ${UI_FONT_HEAVY}`;
     ctx.fillStyle = number === "GO" ? "#9dffcf" : "#ffffff";
     ctx.shadowColor = number === "GO" ? "#66ffaa" : currentTheme.glowColor;
     ctx.shadowBlur = 40;
     ctx.fillText(number, canvas.width / 2, canvas.height / 2 + 55);
+
     ctx.font = `600 16px ${UI_FONT}`;
     ctx.shadowBlur = 0;
     ctx.fillStyle = "rgba(225,240,255,.7)";
-    ctx.fillText(number === "GO" ? "MATCH STARTING" : "GET READY", canvas.width / 2, canvas.height / 2 + 110);
+    ctx.fillText(
+      number === "GO" ? "MATCH STARTING" : "GET READY",
+      canvas.width / 2,
+      canvas.height / 2 + 110
+    );
     ctx.restore();
 
-    if (Date.now() >= (window.onlineCountdownStartAt || 0)) {
+    if (Date.now() >= startAt) {
       gameState = "playing";
       window.online1v1?.startStateLoop?.();
     }
@@ -944,23 +959,84 @@ function drawOnline(time) {
   }
 
   if (!player) return;
-  drawHUDVS();
+
+  // Online has its own HUD. Do not call drawHUDVS(), because that HUD
+  // expects a local bot object which does not exist in online mode.
+  ctx.save();
+  ctx.shadowColor = currentTheme.glowColor;
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = currentTheme.hudTextColor;
+  ctx.font = `700 18px ${UI_FONT}`;
+  ctx.textAlign = "center";
+
+  ctx.fillText("YOU", VS_PLAYER_BOARD_X + (COLS * BLOCK) / 2, 80);
+  ctx.fillText(
+    opponent.toUpperCase(),
+    VS_BOT_BOARD_X + (COLS * BLOCK) / 2,
+    80
+  );
+
+  ctx.font = `600 16px ${UI_FONT}`;
+  ctx.fillText(
+    `Score: ${Number(player.score) || 0}`,
+    VS_PLAYER_BOARD_X + (COLS * BLOCK) / 2,
+    VS_BOARD_Y + VISIBLE_ROWS * BLOCK + 40
+  );
+
+  const remoteScore = onlineState.remotePlayer
+    ? Number(onlineState.remotePlayer.score) || 0
+    : 0;
+  ctx.fillText(
+    `Score: ${remoteScore}`,
+    VS_BOT_BOARD_X + (COLS * BLOCK) / 2,
+    VS_BOARD_Y + VISIBLE_ROWS * BLOCK + 40
+  );
+
+  if (showFPS) {
+    ctx.textAlign = "left";
+    ctx.fillText(`FPS: ${fps}`, 40, 40);
+  }
+  ctx.restore();
+
   drawHold(player, VS_PLAYER_BOARD_X - BLOCK * 5, VS_BOARD_Y + 10);
   drawNext(player, VS_PLAYER_BOARD_X + COLS * BLOCK + BLOCK, VS_BOARD_Y + 10);
   drawBoard(player, VS_PLAYER_BOARD_X, VS_BOARD_Y, currentTheme);
 
-  if (onlineState.remotePlayer) {
-    drawBoard(onlineState.remotePlayer, VS_BOT_BOARD_X, VS_BOARD_Y, currentTheme);
+  if (
+    onlineState.remotePlayer &&
+    Array.isArray(onlineState.remotePlayer.board) &&
+    onlineState.remotePlayer.piece
+  ) {
+    drawBoard(
+      onlineState.remotePlayer,
+      VS_BOT_BOARD_X,
+      VS_BOARD_Y,
+      currentTheme
+    );
+  } else {
+    // Draw an empty opponent board until the first valid state arrives.
+    ctx.save();
+    drawGlassPanel(
+      VS_BOT_BOARD_X - 6,
+      VS_BOARD_Y - 6,
+      COLS * BLOCK + 12,
+      VISIBLE_ROWS * BLOCK + 12,
+      10,
+      currentTheme.glowColor
+    );
+    ctx.fillStyle = currentTheme.boardBg;
+    ctx.fillRect(
+      VS_BOT_BOARD_X,
+      VS_BOARD_Y,
+      COLS * BLOCK,
+      VISIBLE_ROWS * BLOCK
+    );
+    ctx.restore();
   }
-  drawPopups();
 
-  ctx.save();
-  ctx.fillStyle = currentTheme.hudTextColor;
-  ctx.font = `700 16px ${UI_FONT}`;
-  ctx.textAlign = "center";
-  ctx.fillText(opponent.toUpperCase(), VS_BOT_BOARD_X + COLS * BLOCK / 2, VS_BOARD_Y - 24);
-  ctx.restore();
+  drawPopups();
 }
+
 
 function startOnlineMatch(side, roomCode, opponentName, startAt) {
   currentTheme = THEMES[currentThemeKey];
