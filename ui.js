@@ -696,7 +696,7 @@ async function drawLeaderboardScreen(time) {
     ctx.font = isMedal ? `700 18px ${UI_FONT}` : `600 17px ${UI_FONT}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText((e.name || "Player").substring(0, 20), containerX + 128, entryY);
+    ctx.fillText((e.player_name || e.name || "Player").substring(0, 20), containerX + 128, entryY);
 
     if (mode === "vs1v1") {
       const rating = Number(e.rating) || 1000;
