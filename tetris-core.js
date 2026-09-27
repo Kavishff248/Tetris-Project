@@ -1382,6 +1382,16 @@ function getActiveProfileName() {
   return activeProfileName;
 }
 
+function getSavedProfileNames() {
+  return Object.keys(readSettingsProfiles()).sort((a, b) => a.localeCompare(b));
+}
+
+function hasSavedProfile(name) {
+  const profile = normalizeProfileName(name);
+  const profiles = readSettingsProfiles();
+  return !!profiles[profile];
+}
+
 function saveSettingsForProfile(name) {
   const profile = setActiveProfileName(name || activeProfileName);
   const profiles = readSettingsProfiles();
@@ -1412,6 +1422,8 @@ try {
 tempName = activeProfileName;
 
 window.getActiveProfileName = getActiveProfileName;
+window.getSavedProfileNames = getSavedProfileNames;
+window.hasSavedProfile = hasSavedProfile;
 window.setActiveProfileName = setActiveProfileName;
 window.saveSettingsForProfile = saveSettingsForProfile;
 window.loadSettingsForProfile = loadSettingsForProfile;
