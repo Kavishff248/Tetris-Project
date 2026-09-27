@@ -306,7 +306,7 @@ function gameLoop(timestamp) {
     else if (gameMode === "vsBot") drawVS(timestamp);
     drawPauseOverlay();
 
-  } else if (gameState === "playing" || gameState === "gameover") {
+  } else if (gameState === "onlineCountdown" || gameState === "playing" || gameState === "gameover") {
     const now = performance.now();
 
     if (gameMode === "solo") {
