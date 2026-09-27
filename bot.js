@@ -358,7 +358,9 @@ function updateBotPlayer(pState, now) {
     } else if (pState.pieceX > pState._target.x) {
       moveHoriz(pState, -1);
     }
-    pState._nextMove = now + moveInterval * 1000;
+    // Human players do not press movement on the exact same interval every time.
+    const movementJitter = 0.82 + Math.random() * 0.42;
+    pState._nextMove = now + moveInterval * 1000 * movementJitter;
   }
 
   if (
