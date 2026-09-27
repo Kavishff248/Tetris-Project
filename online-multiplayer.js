@@ -198,6 +198,11 @@
     state.stateTimer = setInterval(() => {
       if (window.gameMode !== "online" || !window.player || !state.channel) return;
       const p = window.player;
+      if (!p.alive && !state.finished) {
+        state.finished = true;
+        state.channel.send({ type:"broadcast", event:"gameover", payload:{from:state.id,score:Number(p.score)||0,lines:Number(p.lines)||0} });
+        return;
+      }
       const snapshot = {
         from: state.id,
         score: Number(p.score)||0,
