@@ -567,12 +567,15 @@ document.addEventListener("keydown", (e) => {
   }
 
   if (gameState === "menu") {
-    const menuCount = 5;
+    const menuCount = 6;
     if (e.key === "ArrowUp") {
+      e.preventDefault();
       menuSelection = (menuSelection + menuCount - 1) % menuCount;
     } else if (e.key === "ArrowDown") {
+      e.preventDefault();
       menuSelection = (menuSelection + 1) % menuCount;
     } else if (e.key === "Enter") {
+      e.preventDefault();
       handleMainMenuSelection();
     }
     return;
