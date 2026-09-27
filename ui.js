@@ -1438,40 +1438,77 @@ function drawNameEntry() {
 function drawProfileEntry() {
   drawBackgroundGradient();
 
+  const name = tempName.trim();
+  const saved = window.hasSavedProfile ? window.hasSavedProfile(name) : false;
+  const savedNames = window.getSavedProfileNames ? window.getSavedProfileNames() : [];
+
   ctx.save();
   ctx.textAlign = "center";
-  ctx.fillStyle = currentTheme.hudTextColor;
 
-  ctx.shadowColor = hexToRgba(currentTheme.glowColor, 0.8);
-  ctx.shadowBlur = 22;
-  ctx.font = `900 44px ${UI_FONT_HEAVY}`;
-  ctx.fillText("WELCOME", canvas.width / 2, 170);
+  ctx.shadowColor = hexToRgba(currentTheme.glowColor, .8);
+  ctx.shadowBlur = 28;
+  ctx.fillStyle = currentTheme.hudTextColor;
+  ctx.font = `900 58px ${UI_FONT_HEAVY}`;
+  ctx.fillText("WELCOME", canvas.width / 2, 150);
   ctx.shadowBlur = 0;
 
-  ctx.font = `600 22px ${UI_FONT}`;
-  ctx.fillStyle = "rgba(230,245,255,0.9)";
-  ctx.fillText("Enter your player name", canvas.width / 2, 228);
+  ctx.fillStyle = "rgba(220,240,255,.72)";
+  ctx.font = `600 18px ${UI_FONT}`;
+  ctx.fillText("Choose your player name", canvas.width / 2, 190);
 
-  ctx.fillStyle = "#f3fbff";
-  ctx.font = `700 32px ${UI_FONT}`;
-  ctx.fillText(tempName || "_", canvas.width / 2, 306);
+  const cardW = 610;
+  const cardH = 190;
+  const cardX = canvas.width / 2 - cardW / 2;
+  const cardY = 235;
 
-  ctx.font = `500 16px ${UI_FONT}`;
-  ctx.fillStyle = "rgba(210,235,255,0.82)";
-  ctx.fillText("Press ENTER to continue", canvas.width / 2, 356);
+  drawGlassPanel(cardX, cardY, cardW, cardH, 20, currentTheme.glowColor);
 
-  const invalidUntil = window.nameEntryInvalidUntil || 0;
-  if (Date.now() < invalidUntil) {
-    const tt = Date.now();
-    const alpha = 0.6 + 0.4 * Math.abs(Math.sin((tt % 400) / 400 * Math.PI * 2));
-    ctx.fillStyle = `rgba(255,80,80,${alpha.toFixed(3)})`;
-    ctx.font = `500 16px ${UI_FONT}`;
-    ctx.fillText("Please enter a name", canvas.width / 2, 334);
+  ctx.fillStyle = "rgba(210,235,255,.5)";
+  ctx.font = `700 11px ${UI_FONT}`;
+  ctx.textAlign = "left";
+  ctx.fillText("PLAYER NAME", cardX + 28, cardY + 30);
+
+  ctx.fillStyle = name ? "#f5fbff" : "rgba(245,251,255,.35)";
+  ctx.font = `800 32px ${UI_FONT}`;
+  ctx.fillText(name || "Type your name...", cardX + 28, cardY + 76);
+
+  // Cursor
+  if (Math.floor(performance.now() / 500) % 2 === 0) {
+    const text = name || "Type your name...";
+    const width = ctx.measureText(text).width;
+    ctx.fillStyle = currentTheme.glowColor;
+    ctx.fillRect(cardX + 30 + width, cardY + 47, 2, 36);
   }
+
+  ctx.fillStyle = saved ? "rgba(120,235,180,.95)" : "rgba(210,230,248,.58)";
+  ctx.font = `700 12px ${UI_FONT}`;
+  ctx.fillText(
+    saved ? "SAVED SETTINGS FOUND — THEY WILL LOAD WHEN YOU CONTINUE" : "A profile is saved automatically when you continue",
+    cardX + 28,
+    cardY + 120
+  );
+
+  ctx.fillStyle = "rgba(205,230,250,.55)";
+  ctx.font = `500 12px ${UI_FONT}`;
+  ctx.fillText("Backspace to edit • Enter to continue • Max 24 characters", cardX + 28, cardY + 153);
+
+  ctx.textAlign = "center";
+  if (savedNames.length > 0) {
+    ctx.fillStyle = "rgba(210,235,255,.55)";
+    ctx.font = `500 13px ${UI_FONT}`;
+    ctx.fillText(
+      savedNames.length === 1 ? "1 saved player on this device" : `${savedNames.length} saved players on this device`,
+      canvas.width / 2,
+      470
+    );
+  }
+
+  ctx.fillStyle = "rgba(205,230,250,.46)";
+  ctx.font = `500 13px ${UI_FONT}`;
+  ctx.fillText("Your theme, speed and controls are saved separately for each name.", canvas.width / 2, 520);
 
   ctx.restore();
 }
-
 
 window.drawBackgroundGradient = drawBackgroundGradient;
 window.drawBoard = drawBoard;
