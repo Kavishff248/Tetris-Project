@@ -141,6 +141,7 @@
     if (state.started) return;
     state.started = true;
     state.opponentName = opponent || "Opponent";
+    const startAt = Date.now() + 4200;
     if (state.channel && state.connected) {
       state.channel.send({
         type: "broadcast",
@@ -148,13 +149,14 @@
         payload: {
           roomCode: state.roomCode,
           side: state.side,
-          opponentName: state.opponentName
+          opponentName: state.opponentName,
+          startAt
         }
       }).catch(err => console.error("Start broadcast failed:", err));
     }
     closeLobby();
     if (window.startOnlineMatch) {
-      window.startOnlineMatch(state.side, state.roomCode, state.opponentName);
+      window.startOnlineMatch(state.side, state.roomCode, state.opponentName, startAt);
     }
   }
 
@@ -165,7 +167,12 @@
     state.side = payload.side === "host" ? "guest" : "host";
     closeLobby();
     if (window.startOnlineMatch) {
-      window.startOnlineMatch(state.side, state.roomCode || payload.roomCode, state.opponentName);
+      window.startOnlineMatch(
+        state.side,
+        state.roomCode || payload.roomCode,
+        state.opponentName,
+        Number(payload.startAt) || (Date.now() + 1500)
+      );
     }
   }
 
@@ -281,8 +288,8 @@
         }).catch(err => console.error("Ready broadcast failed:", err));
       }
 
-      startRoom(data.host_name || "Host");
-
+      status("Joined. Waiting for the host to start...");
+      
       if (state.poll) clearInterval(state.poll);
       state.poll = setInterval(checkRoom, 1000);
     } catch (err) {
