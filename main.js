@@ -901,6 +901,80 @@ function startVSBot() {
 }
 
 
+function drawOnline(time) {
+  drawBackgroundGradient();
+  const onlineState = window.online1v1?.getState ? window.online1v1.getState() : {};
+  const roomCode = onlineState.roomCode || "------";
+  const opponent = onlineState.opponentName || "Opponent";
+
+  if (gameState === "onlineCountdown") {
+    const remaining = Math.max(0, (window.onlineCountdownStartAt || Date.now()) - Date.now());
+    const number = remaining <= 700 ? "GO" : String(Math.max(1, Math.ceil((remaining - 700) / 1000)));
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.fillStyle = currentTheme.hudTextColor;
+    ctx.font = `900 52px ${UI_FONT_HEAVY}`;
+    ctx.shadowColor = currentTheme.glowColor;
+    ctx.shadowBlur = 24;
+    ctx.fillText("ONLINE 1V1", canvas.width / 2, 105);
+    ctx.shadowBlur = 0;
+    ctx.font = `600 18px ${UI_FONT}`;
+    ctx.fillStyle = "rgba(225,240,255,.75)";
+    ctx.fillText(`ROOM ${roomCode}`, canvas.width / 2, 145);
+    ctx.font = `700 24px ${UI_FONT}`;
+    ctx.fillStyle = "#fff";
+    ctx.fillText(`${window.getActiveProfileName ? window.getActiveProfileName() : "Player"}  VS  ${opponent}`, canvas.width / 2, 205);
+    ctx.font = `900 150px ${UI_FONT_HEAVY}`;
+    ctx.fillStyle = number === "GO" ? "#9dffcf" : "#ffffff";
+    ctx.shadowColor = number === "GO" ? "#66ffaa" : currentTheme.glowColor;
+    ctx.shadowBlur = 40;
+    ctx.fillText(number, canvas.width / 2, canvas.height / 2 + 55);
+    ctx.font = `600 16px ${UI_FONT}`;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(225,240,255,.7)";
+    ctx.fillText(number === "GO" ? "MATCH STARTING" : "GET READY", canvas.width / 2, canvas.height / 2 + 110);
+    ctx.restore();
+
+    if (Date.now() >= (window.onlineCountdownStartAt || 0)) {
+      gameState = "playing";
+      window.online1v1?.startStateLoop?.();
+    }
+    return;
+  }
+
+  if (!player) return;
+  drawHUDVS();
+  drawHold(player, VS_PLAYER_BOARD_X - BLOCK * 5, VS_BOARD_Y + 10);
+  drawNext(player, VS_PLAYER_BOARD_X + COLS * BLOCK + BLOCK, VS_BOARD_Y + 10);
+  drawBoard(player, VS_PLAYER_BOARD_X, VS_BOARD_Y, currentTheme);
+
+  if (onlineState.remotePlayer) {
+    drawBoard(onlineState.remotePlayer, VS_BOT_BOARD_X, VS_BOARD_Y, currentTheme);
+  }
+  drawPopups();
+
+  ctx.save();
+  ctx.fillStyle = currentTheme.hudTextColor;
+  ctx.font = `700 16px ${UI_FONT}`;
+  ctx.textAlign = "center";
+  ctx.fillText(opponent.toUpperCase(), VS_BOT_BOARD_X + COLS * BLOCK / 2, VS_BOARD_Y - 24);
+  ctx.restore();
+}
+
+function startOnlineMatch(side, roomCode, opponentName, startAt) {
+  currentTheme = THEMES[currentThemeKey];
+  player = createPlayerState();
+  gameMode = "online";
+  gameState = "onlineCountdown";
+  popups = [];
+  window.onlineCountdownStartAt = Number(startAt) || (Date.now() + 4200);
+  window.online1v1?.stopStateLoop?.();
+}
+
+window.startOnlineMatch = startOnlineMatch;
+window.drawOnline = drawOnline;
+
 function applyOptionsAdjustments() {
 
 }
