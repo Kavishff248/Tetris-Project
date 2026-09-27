@@ -10,7 +10,8 @@
     started: false,
     finished: false,
     resultRecorded: false,
-    connected: false
+    connected: false,
+    remotePlayer: null
   };
   localStorage.setItem("tetris_client_id", state.id);
 
@@ -107,7 +108,10 @@
           if (!state.started) beginMatch(payload || {});
         })
         .on("broadcast", { event: "state" }, ({ payload }) => {
-          if (payload && payload.from !== state.id && window.receiveOnlineState) window.receiveOnlineState(payload);
+          if (payload && payload.from !== state.id) {
+            state.remotePlayer = payload;
+            if (window.receiveOnlineState) window.receiveOnlineState(payload);
+          }
         })
         .on("broadcast", { event: "attack" }, ({ payload }) => {
           if (payload && payload.from !== state.id && window.receiveOnlineAttack) window.receiveOnlineAttack(payload);
@@ -396,6 +400,7 @@
     state.finished = false;
     state.resultRecorded = false;
     state.connected = false;
+    state.remotePlayer = null;
   }
 
   window.online1v1 = {
