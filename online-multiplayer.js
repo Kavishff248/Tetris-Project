@@ -200,7 +200,8 @@
       const p = window.player;
       if (!p.alive && !state.finished) {
         state.finished = true;
-        state.channel.send({ type:"broadcast", event:"gameover", payload:{from:state.id,score:Number(p.score)||0,lines:Number(p.lines)||0} });
+        await state.channel.send({ type:"broadcast", event:"gameover", payload:{from:state.id,score:Number(p.score)||0,lines:Number(p.lines)||0} });
+        await recordResult("loss", Number(p.score)||0, 0, Number(p.lines)||0);
         return;
       }
       const snapshot = {
