@@ -1,23 +1,18 @@
-console.log("supabase-init.js LOADED");
+console.log("Supabase Tetris client loading...");
 
-
-const SUPABASE_URL = "https://wsaqhwsjmdvyhgpbvnvr.supabase.co";
-const SUPABASE_KEY = "sb_publishable_sT2R5zxJ7tBPl8kr5rgE9g_1LG4Dmo0";
+const SUPABASE_URL = "https://lfpbrxsrvjizukugsvsq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_kSb7Sv1RWOq8bernfgXYLw_RPwLon9r";
 
 try {
-  if (typeof supabase !== "undefined" && typeof supabase.createClient === "function") {
+  if (window.supabase && typeof window.supabase.createClient === "function") {
+    window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  } else if (typeof supabase !== "undefined" && typeof supabase.createClient === "function") {
     window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  } else if (typeof Supabase !== "undefined" && typeof Supabase.createClient === "function") {
-    window.supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  } else if (typeof createClient === "function") {
-    window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
   } else {
-    console.error("Supabase library not found — include @supabase/supabase-js before this script");
+    console.error("Supabase library not found.");
     window.supabase = null;
   }
 } catch (err) {
-  console.error("Error initializing Supabase client:", err);
+  console.error("Supabase initialization failed:", err);
   window.supabase = null;
 }
-
-console.log("Supabase initialized:", window.supabase);
