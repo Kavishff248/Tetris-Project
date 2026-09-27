@@ -346,6 +346,11 @@ function gameLoop(timestamp) {
 
       drawVS(timestamp);
       if (window.runVSEffects) runVSEffects();
+    } else if (gameMode === "online") {
+      if (!player.piece) spawnPiece(player);
+      if (gameState === "playing") updatePlayer(player, now);
+      drawOnline(timestamp);
+      if (window.runVSEffects) runVSEffects();
     }
   }
 
