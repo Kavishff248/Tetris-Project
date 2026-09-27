@@ -195,15 +195,23 @@
 
   function startStateLoop() {
     if (state.stateTimer) clearInterval(state.stateTimer);
-    state.stateTimer = setInterval(async () => {
+    state.stateTimer = setInterval(() => {
       if (window.gameMode !== "online" || !window.player || !state.channel) return;
       const p = window.player;
+
       if (!p.alive && !state.finished) {
-        state.finished = true;
-        await state.channel.send({ type:"broadcast", event:"gameover", payload:{from:state.id,score:Number(p.score)||0,lines:Number(p.lines)||0} });
-        await recordResult("loss", Number(p.score)||0, 0, Number(p.lines)||0);
+        state.channel.send({
+          type:"broadcast",
+          event:"gameover",
+          payload:{from:state.id,score:Number(p.score)||0,lines:Number(p.lines)||0}
+        }).catch(err => console.error("Online gameover broadcast failed:", err));
+
+        recordResult("loss", Number(p.score)||0, 0, Number(p.lines)||0)
+          .catch(err => console.error("Online result save failed:", err));
+
         return;
       }
+
       const snapshot = {
         from: state.id,
         score: Number(p.score)||0,
@@ -219,7 +227,9 @@
         garbageQueue: Number(p.garbageQueue)||0,
         board: p.board
       };
-      state.channel.send({ type:"broadcast", event:"state", payload:snapshot });
+
+      state.channel.send({ type:"broadcast", event:"state", payload:snapshot })
+        .catch(err => console.error("Online state broadcast failed:", err));
     }, 70);
   }
 
