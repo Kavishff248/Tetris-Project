@@ -212,7 +212,7 @@
 
     const { data, error } = await window.supabase
       .from("tetris_rooms")
-      .select("guest_id,guest_name,host_name,status")
+      .select("host_id,guest_id,guest_name,host_name,status")
       .eq("code", state.roomCode)
       .maybeSingle();
 
