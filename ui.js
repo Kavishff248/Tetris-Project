@@ -435,104 +435,159 @@ function drawHUDVS() {
 function drawMainMenu(time) {
   drawBackgroundGradient();
 
-  const t = time / 1000;
   const theme = currentTheme;
-  const pulse = 0.7 + 0.3 * Math.sin(t * 2);
-  const leftX = 130;
-  const leftY = 170;
-  const panelX = canvas.width - 530;
-  const panelY = 120;
-  const panelW = 410;
-  const panelH = 520;
+  const t = time / 1000;
+  const pulse = 0.7 + 0.3 * Math.sin(t * 1.7);
+  const player = (window.getActiveProfileName && window.getActiveProfileName()) || "Player";
 
   const labels = [
-    "Single Player",
-    "Bot Mode",
-    "Leaderboards",
-    "Controls",
-    "Options"
+    { title: "Single Player", sub: "Classic solo Tetris" },
+    { title: "Bot Mode", sub: "Play against a computer" },
+    { title: "Leaderboards", sub: "See the top scores" },
+    { title: "Controls", sub: "Change your key bindings" },
+    { title: "Options", sub: "Theme, speed and settings" }
   ];
 
+  const leftX = 86;
+  const topY = 92;
+  const panelX = 780;
+  const panelY = 92;
+  const panelW = 530;
+  const panelH = 610;
+  const rowX = 86;
+  const rowW = 590;
+  const rowH = 76;
+  const rowGap = 12;
+
+  // Brand area
   ctx.save();
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.shadowColor = theme.menuLogoShadow;
-  ctx.shadowBlur = 26 * pulse;
+  ctx.shadowBlur = 30 * pulse;
   ctx.fillStyle = theme.menuLogoColor;
-  ctx.font = `900 90px ${UI_FONT_HEAVY}`;
-  ctx.fillText(theme.titleLabel || "TETRIS+", leftX, leftY);
+  ctx.font = `900 78px ${UI_FONT_HEAVY}`;
+  ctx.fillText(theme.titleLabel || "TETRIS+", leftX, topY);
   ctx.shadowBlur = 0;
-  ctx.fillStyle = "rgba(225,242,255,0.86)";
-  ctx.font = `600 22px ${UI_FONT}`;
-  ctx.fillText("Clean stack. Fast rounds. Solo focus.", leftX + 2, leftY + 104);
-  ctx.font = `500 15px ${UI_FONT}`;
-  ctx.fillStyle = "rgba(215,235,255,0.72)";
-  ctx.fillText("UP/DOWN + ENTER or mouse click", leftX + 2, leftY + 142);
+  ctx.fillStyle = "rgba(225,242,255,.78)";
+  ctx.font = `600 18px ${UI_FONT}`;
+  ctx.fillText("A cleaner way to play Tetris.", leftX + 3, topY + 88);
+  ctx.fillStyle = "rgba(205,230,250,.52)";
+  ctx.font = `500 14px ${UI_FONT}`;
+  ctx.fillText("Arrow keys to move • Enter to select • Mouse supported", leftX + 3, topY + 116);
   ctx.restore();
 
+  // Menu card
   ctx.save();
-  drawGlassPanel(panelX, panelY, panelW, panelH, 18, theme.menuBannerAccent);
-  ctx.fillStyle = "rgba(230,245,255,0.9)";
+  drawGlassPanel(rowX - 16, 236, rowW + 32, 454, 20, theme.menuBannerAccent);
+  ctx.fillStyle = "#edf8ff";
+  ctx.font = `800 14px ${UI_FONT}`;
   ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.font = `700 18px ${UI_FONT}`;
-  ctx.fillText("MAIN MENU", panelX + 24, panelY + 18);
-  ctx.strokeStyle = "rgba(255,255,255,0.18)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(panelX + 20, panelY + 52);
-  ctx.lineTo(panelX + panelW - 20, panelY + 52);
-  ctx.stroke();
+  ctx.fillText("PLAY", rowX + 8, 264);
   ctx.restore();
 
   topRightMenuButtons = [];
-  const rowX = panelX + 20;
-  const rowW = panelW - 40;
-  const rowH = 54;
-  const rowGap = 10;
-  const firstY = panelY + 66;
-  const buttonColors = theme.menuButtonColors;
-
-  labels.forEach((label, i) => {
-    const y = firstY + i * (rowH + rowGap);
-    const isSelected = (i === menuSelection);
-    const color = buttonColors[i % buttonColors.length];
+  labels.forEach((item, i) => {
+    const y = 282 + i * (rowH + rowGap);
+    const selected = i === menuSelection;
+    const accent = theme.menuButtonColors[i % theme.menuButtonColors.length];
 
     ctx.save();
-    const rowGrad = ctx.createLinearGradient(rowX, y, rowX + rowW, y + rowH);
-    if (isSelected) {
-      rowGrad.addColorStop(0, hexToRgba(color, 0.34));
-      rowGrad.addColorStop(1, hexToRgba(color, 0.2));
-      ctx.shadowColor = hexToRgba(color, 0.8);
-      ctx.shadowBlur = 14;
+    const g = ctx.createLinearGradient(rowX, y, rowX + rowW, y + rowH);
+    if (selected) {
+      g.addColorStop(0, hexToRgba(accent, .30));
+      g.addColorStop(1, hexToRgba(accent, .10));
+      ctx.shadowColor = hexToRgba(accent, .7);
+      ctx.shadowBlur = 18;
     } else {
-      rowGrad.addColorStop(0, "rgba(255,255,255,0.06)");
-      rowGrad.addColorStop(1, "rgba(255,255,255,0.02)");
-      ctx.shadowBlur = 0;
+      g.addColorStop(0, "rgba(255,255,255,.065)");
+      g.addColorStop(1, "rgba(255,255,255,.018)");
     }
-    ctx.fillStyle = rowGrad;
-    roundRect(ctx, rowX, y, rowW, rowH, 11, true, false);
+    ctx.fillStyle = g;
+    roundRect(ctx, rowX, y, rowW, rowH, 13, true, false);
+    ctx.strokeStyle = selected ? hexToRgba(accent, .9) : "rgba(180,210,240,.22)";
+    ctx.lineWidth = selected ? 1.8 : 1;
+    roundRect(ctx, rowX, y, rowW, rowH, 13, false, true);
 
-    ctx.strokeStyle = isSelected ? hexToRgba(color, 0.85) : "rgba(170,205,245,0.25)";
-    ctx.lineWidth = isSelected ? 1.8 : 1;
-    roundRect(ctx, rowX, y, rowW, rowH, 11, false, true);
-
-    if (isSelected) {
-      ctx.fillStyle = "rgba(235,248,255,0.95)";
-      ctx.fillRect(rowX + 12, y + 10, 4, rowH - 20);
+    if (selected) {
+      ctx.fillStyle = accent;
+      roundRect(ctx, rowX + 12, y + 12, 5, rowH - 24, 3, true, false);
     }
 
-    ctx.fillStyle = "#f2f9ff";
-    ctx.font = isSelected ? `700 19px ${UI_FONT}` : `600 17px ${UI_FONT}`;
+    ctx.fillStyle = "#f5fbff";
+    ctx.font = selected ? `800 19px ${UI_FONT}` : `700 18px ${UI_FONT}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, rowX + 28, y + rowH / 2 + 1);
+    ctx.fillText(item.title, rowX + 32, y + 30);
+    ctx.fillStyle = selected ? "rgba(235,248,255,.76)" : "rgba(210,230,248,.55)";
+    ctx.font = `500 12px ${UI_FONT}`;
+    ctx.fillText(item.sub, rowX + 32, y + 52);
+
+    ctx.fillStyle = selected ? "#ffffff" : "rgba(220,240,255,.42)";
+    ctx.font = `700 20px ${UI_FONT}`;
+    ctx.textAlign = "right";
+    ctx.fillText("›", rowX + rowW - 22, y + rowH / 2);
     ctx.restore();
 
     topRightMenuButtons.push({ x: rowX, y, w: rowW, h: rowH, index: i });
   });
-}
 
+  // Player panel
+  ctx.save();
+  drawGlassPanel(panelX, panelY, panelW, panelH, 22, theme.menuBannerAccent);
+  ctx.fillStyle = "rgba(225,242,255,.55)";
+  ctx.font = `700 12px ${UI_FONT}`;
+  ctx.textAlign = "left";
+  ctx.fillText("PLAYER PROFILE", panelX + 30, panelY + 34);
+
+  ctx.fillStyle = "#f6fbff";
+  ctx.font = `900 34px ${UI_FONT_HEAVY}`;
+  ctx.fillText(player, panelX + 30, panelY + 82);
+
+  ctx.fillStyle = "rgba(210,235,255,.62)";
+  ctx.font = `500 14px ${UI_FONT}`;
+  ctx.fillText("Your settings are saved to this name on this device.", panelX + 30, panelY + 112);
+
+  const saved = window.hasSavedProfile ? window.hasSavedProfile(player) : false;
+  ctx.fillStyle = saved ? "rgba(120,235,180,.9)" : "rgba(205,225,245,.55)";
+  ctx.font = `700 12px ${UI_FONT}`;
+  ctx.fillText(saved ? "● SAVED PROFILE" : "● NEW PROFILE", panelX + 30, panelY + 145);
+
+  ctx.strokeStyle = "rgba(255,255,255,.12)";
+  ctx.beginPath();
+  ctx.moveTo(panelX + 30, panelY + 175);
+  ctx.lineTo(panelX + panelW - 30, panelY + 175);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(225,242,255,.62)";
+  ctx.font = `700 12px ${UI_FONT}`;
+  ctx.fillText("QUICK START", panelX + 30, panelY + 212);
+
+  const tips = [
+    ["01", "Choose Single Player for a normal game."],
+    ["02", "Try Bot Mode when you want a challenge."],
+    ["03", "Use Options to make the game yours."]
+  ];
+  tips.forEach((tip, i) => {
+    const yy = panelY + 252 + i * 72;
+    ctx.fillStyle = hexToRgba(theme.glowColor, .18);
+    roundRect(ctx, panelX + 30, yy - 18, 42, 42, 10, true, false);
+    ctx.fillStyle = theme.glowColor;
+    ctx.font = `800 11px ${UI_FONT}`;
+    ctx.textAlign = "center";
+    ctx.fillText(tip[0], panelX + 51, yy + 5);
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#e9f6ff";
+    ctx.font = `600 14px ${UI_FONT}`;
+    ctx.fillText(tip[1], panelX + 88, yy + 1);
+  });
+
+  ctx.fillStyle = "rgba(205,230,250,.48)";
+  ctx.font = `500 12px ${UI_FONT}`;
+  ctx.fillText("Tip: your controls, theme and speed stay with your profile.", panelX + 30, panelY + panelH - 28);
+  ctx.restore();
+}
 
 async function drawLeaderboardScreen(time) {
   drawBackgroundGradient();
