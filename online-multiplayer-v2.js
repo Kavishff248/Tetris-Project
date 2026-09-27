@@ -9,7 +9,8 @@
     stateTimer: null,
     started: false,
     finished: false,
-    lastAttackAt: 0
+    resultRecorded: false,
+    connected: false
   };
   localStorage.setItem("tetris_client_id", state.id);
 
@@ -83,35 +84,94 @@
     state.poll = null;
   }
 
-  async function subscribe(codeValue) {
-    if (!window.supabase) throw new Error("Supabase is not initialized.");
-    if (state.channel) await window.supabase.removeChannel(state.channel);
-    state.channel = window.supabase.channel("tetris-room-" + codeValue);
-    state.channel
-      .on("broadcast", { event: "start" }, ({ payload }) => {
-        if (!state.started) beginMatch(payload);
-      })
-      .on("broadcast", { event: "state" }, ({ payload }) => {
-        if (payload && payload.from !== state.id && window.receiveOnlineState) window.receiveOnlineState(payload);
-      })
-      .on("broadcast", { event: "attack" }, ({ payload }) => {
-        if (payload && payload.from !== state.id && window.receiveOnlineAttack) window.receiveOnlineAttack(payload);
-      })
-      .on("broadcast", { event: "gameover" }, ({ payload }) => {
-        if (payload && payload.from !== state.id && window.receiveOnlineGameover) window.receiveOnlineGameover(payload);
-      })
-      .on("broadcast", { event: "ready" }, ({ payload }) => {
-        if (payload && state.side === "host" && payload.from !== state.id) startRoom(payload.name || "Opponent");
-      })
-      .subscribe((channelStatus) => {
-        if (channelStatus === "SUBSCRIBED") {
-          status("Connected to room " + codeValue);
-        }
+  function subscribe(codeValue) {
+    return new Promise((resolve, reject) => {
+      if (!window.supabase) {
+        reject(new Error("Supabase is not initialized."));
+        return;
+      }
+
+      if (state.channel) {
+        window.supabase.removeChannel(state.channel).catch(() => {});
+        state.channel = null;
+      }
+
+      state.connected = false;
+      const channel = window.supabase.channel("tetris-room-" + codeValue, {
+        config: { broadcast: { ack: true } }
       });
+      state.channel = channel;
+
+      channel
+        .on("broadcast", { event: "start" }, ({ payload }) => {
+          if (!state.started) beginMatch(payload || {});
+        })
+        .on("broadcast", { event: "state" }, ({ payload }) => {
+          if (payload && payload.from !== state.id && window.receiveOnlineState) window.receiveOnlineState(payload);
+        })
+        .on("broadcast", { event: "attack" }, ({ payload }) => {
+          if (payload && payload.from !== state.id && window.receiveOnlineAttack) window.receiveOnlineAttack(payload);
+        })
+        .on("broadcast", { event: "gameover" }, ({ payload }) => {
+          if (payload && payload.from !== state.id && window.receiveOnlineGameover) window.receiveOnlineGameover(payload);
+        })
+        .on("broadcast", { event: "ready" }, ({ payload }) => {
+          if (payload && state.side === "host" && payload.from !== state.id) {
+            startRoom(payload.name || "Opponent");
+          }
+        })
+        .subscribe((channelStatus, err) => {
+          if (channelStatus === "SUBSCRIBED") {
+            state.connected = true;
+            status("Connected. Starting 1v1...");
+            resolve(true);
+          } else if (channelStatus === "CHANNEL_ERROR" || channelStatus === "TIMED_OUT") {
+            state.connected = false;
+            console.error("Tetris Realtime channel error:", channelStatus, err);
+            status("Realtime connection failed. Retrying...");
+            reject(err || new Error(channelStatus));
+          } else if (channelStatus === "CLOSED") {
+            state.connected = false;
+          }
+        });
+    });
+  }
+
+  function startRoom(opponent) {
+    if (state.started) return;
+    state.started = true;
+    state.opponentName = opponent || "Opponent";
+    if (state.channel && state.connected) {
+      state.channel.send({
+        type: "broadcast",
+        event: "start",
+        payload: {
+          roomCode: state.roomCode,
+          side: state.side,
+          opponentName: state.opponentName
+        }
+      }).catch(err => console.error("Start broadcast failed:", err));
+    }
+    closeLobby();
+    if (window.startOnlineMatch) {
+      window.startOnlineMatch(state.side, state.roomCode, state.opponentName);
+    }
+  }
+
+  function beginMatch(payload) {
+    if (state.started) return;
+    state.started = true;
+    state.opponentName = payload.opponentName || "Opponent";
+    state.side = payload.side === "host" ? "guest" : "host";
+    closeLobby();
+    if (window.startOnlineMatch) {
+      window.startOnlineMatch(state.side, state.roomCode || payload.roomCode, state.opponentName);
+    }
   }
 
   async function createRoom() {
     try {
+      if (!window.supabase) throw new Error("Supabase is not initialized.");
       const roomCode = code();
       const { error } = await window.supabase.from("tetris_rooms").insert({
         code: roomCode,
@@ -120,26 +180,55 @@
         status: "waiting"
       });
       if (error) throw error;
+
       state.roomCode = roomCode;
       state.side = "host";
       state.started = false;
+      state.finished = false;
+      state.resultRecorded = false;
+
       const codeEl = document.getElementById("olCode");
       codeEl.textContent = roomCode;
       codeEl.style.display = "block";
-      await subscribe(roomCode);
-      status("Waiting for the other player...");
-      state.poll = setInterval(checkRoom, 1200);
+      status("Connecting to room...");
+      try { await subscribe(roomCode); } catch (_) {}
+
+      if (!state.connected) {
+        status("Room created. Retrying connection...");
+      } else {
+        status("Waiting for the other player...");
+      }
+
+      if (state.poll) clearInterval(state.poll);
+      state.poll = setInterval(checkRoom, 1000);
     } catch (err) {
-      console.error(err);
+      console.error("Create room failed:", err);
       status("Could not create room: " + (err.message || "unknown error"));
     }
   }
 
   async function checkRoom() {
-    if (!state.roomCode || state.side !== "host" || state.started) return;
-    const { data, error } = await window.supabase.from("tetris_rooms").select("guest_id,guest_name,status").eq("code", state.roomCode).maybeSingle();
-    if (error) return;
-    if (data && data.guest_id) startRoom(data.guest_name || "Opponent");
+    if (!state.roomCode || state.started) return;
+
+    const { data, error } = await window.supabase
+      .from("tetris_rooms")
+      .select("guest_id,guest_name,host_name,status")
+      .eq("code", state.roomCode)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Room check failed:", error);
+      return;
+    }
+
+    if (state.side === "host" && data && data.guest_id) {
+      if (!state.started) startRoom(data.guest_name || "Opponent");
+      return;
+    }
+
+    if (state.side === "guest" && data && data.host_id && data.guest_id === state.id && data.status === "ready") {
+      if (!state.started) startRoom(data.host_name || "Host");
+    }
   }
 
   async function joinRoom(rawCode) {
@@ -148,88 +237,93 @@
       status("Enter a 6-character room code.");
       return;
     }
+
     try {
-      const { data, error } = await window.supabase.from("tetris_rooms").select("id,code,host_id,host_name,guest_id,status").eq("code", roomCode).maybeSingle();
+      if (!window.supabase) throw new Error("Supabase is not initialized.");
+
+      const { data, error } = await window.supabase
+        .from("tetris_rooms")
+        .select("id,code,host_id,host_name,guest_id,status")
+        .eq("code", roomCode)
+        .maybeSingle();
+
       if (error) throw error;
       if (!data) throw new Error("Room not found.");
       if (data.guest_id && data.guest_id !== state.id) throw new Error("Room is already full.");
       if (data.status === "finished") throw new Error("Room has ended.");
+
       state.roomCode = roomCode;
       state.side = "guest";
       state.started = false;
-      const { error: joinError } = await window.supabase.from("tetris_rooms").update({
-        guest_id: state.id,
-        guest_name: name(),
-        status: "ready",
-        updated_at: new Date().toISOString()
-      }).eq("code", roomCode);
+      state.finished = false;
+      state.resultRecorded = false;
+
+      const { error: joinError } = await window.supabase
+        .from("tetris_rooms")
+        .update({
+          guest_id: state.id,
+          guest_name: name(),
+          status: "ready",
+          updated_at: new Date().toISOString()
+        })
+        .eq("code", roomCode);
+
       if (joinError) throw joinError;
-      await subscribe(roomCode);
-      await state.channel.send({ type:"broadcast", event:"ready", payload:{from:state.id,name:name()} });
-      status("Joined. Waiting for the host...");
+
+      status("Joined. Connecting to 1v1...");
+      try { await subscribe(roomCode); } catch (_) {}
+
+      if (state.connected) {
+        state.channel.send({
+          type: "broadcast",
+          event: "ready",
+          payload: { from: state.id, name: name() }
+        }).catch(err => console.error("Ready broadcast failed:", err));
+      }
+
       startRoom(data.host_name || "Host");
+
+      if (state.poll) clearInterval(state.poll);
+      state.poll = setInterval(checkRoom, 1000);
     } catch (err) {
-      console.error(err);
+      console.error("Join room failed:", err);
       status(err.message || "Could not join room.");
     }
-  }
-
-  async function startRoom(opponent) {
-    if (state.started) return;
-    state.started = true;
-    state.opponentName = opponent || "Opponent";
-    const payload = { roomCode: state.roomCode, side: state.side, opponentName: state.opponentName };
-    if (state.channel) await state.channel.send({ type:"broadcast", event:"start", payload });
-    closeLobby();
-    if (window.startOnlineMatch) window.startOnlineMatch(state.side, state.roomCode, state.opponentName);
-  }
-
-  async function beginMatch(payload) {
-    if (state.started) return;
-    state.started = true;
-    state.opponentName = payload.opponentName || "Opponent";
-    state.side = payload.side === "host" ? "guest" : "host";
-    closeLobby();
-    if (window.startOnlineMatch) window.startOnlineMatch(state.side, state.roomCode || payload.roomCode, state.opponentName);
   }
 
   function startStateLoop() {
     if (state.stateTimer) clearInterval(state.stateTimer);
     state.stateTimer = setInterval(() => {
-      if (window.gameMode !== "online" || !window.player || !state.channel) return;
+      if (window.gameMode !== "online" || !window.player || !state.channel || !state.connected) return;
       const p = window.player;
 
       if (!p.alive && !state.finished) {
-        state.channel.send({
-          type:"broadcast",
-          event:"gameover",
-          payload:{from:state.id,score:Number(p.score)||0,lines:Number(p.lines)||0}
-        }).catch(err => console.error("Online gameover broadcast failed:", err));
-
-        recordResult("loss", Number(p.score)||0, 0, Number(p.lines)||0)
-          .catch(err => console.error("Online result save failed:", err));
-
+        sendGameover(Number(p.score) || 0, Number(p.lines) || 0).catch(err => console.error("Gameover broadcast failed:", err));
+        recordResult("loss", Number(p.score) || 0, 0, Number(p.lines) || 0).catch(err => console.error("Online result save failed:", err));
         return;
       }
 
       const snapshot = {
         from: state.id,
-        score: Number(p.score)||0,
-        lines: Number(p.lines)||0,
-        level: Number(p.level)||1,
+        score: Number(p.score) || 0,
+        lines: Number(p.lines) || 0,
+        level: Number(p.level) || 1,
         alive: !!p.alive,
         piece: p.piece,
         pieceX: p.pieceX,
         pieceY: p.pieceY,
         rotation: p.rotation,
         hold: p.hold,
-        queue: Array.isArray(p.queue) ? p.queue.slice(0,5) : [],
-        garbageQueue: Number(p.garbageQueue)||0,
+        queue: Array.isArray(p.queue) ? p.queue.slice(0, 5) : [],
+        garbageQueue: Number(p.garbageQueue) || 0,
         board: p.board
       };
 
-      state.channel.send({ type:"broadcast", event:"state", payload:snapshot })
-        .catch(err => console.error("Online state broadcast failed:", err));
+      state.channel.send({
+        type: "broadcast",
+        event: "state",
+        payload: snapshot
+      }).catch(err => console.error("Online state broadcast failed:", err));
     }, 70);
   }
 
@@ -239,45 +333,75 @@
   }
 
   async function sendAttack(amount) {
-    if (!state.channel || !amount) return;
-    await state.channel.send({ type:"broadcast", event:"attack", payload:{from:state.id,amount:Number(amount)||0} });
+    if (!state.channel || !state.connected || !amount) return;
+    await state.channel.send({
+      type: "broadcast",
+      event: "attack",
+      payload: { from: state.id, amount: Number(amount) || 0 }
+    });
   }
 
   async function sendGameover(score, lines) {
-    if (!state.channel) return;
-    await state.channel.send({ type:"broadcast", event:"gameover", payload:{from:state.id,score:Number(score)||0,lines:Number(lines)||0} });
+    if (!state.channel || !state.connected) return;
+    await state.channel.send({
+      type: "broadcast",
+      event: "gameover",
+      payload: { from: state.id, score: Number(score) || 0, lines: Number(lines) || 0 }
+    });
   }
 
   async function recordResult(result, score, opponentScore, lines) {
-    if (!window.supabase || !state.roomCode || state.finished) return;
-    state.finished = true;
-    await window.supabase.from("tetris_matches").insert({
+    if (!window.supabase || !state.roomCode || state.resultRecorded) return;
+    state.resultRecorded = true;
+
+    const { error } = await window.supabase.from("tetris_matches").insert({
       room_code: state.roomCode,
       player_name: name(),
       opponent_name: state.opponentName || "Opponent",
       result,
-      score: Math.max(0, Number(score)||0),
-      opponent_score: Math.max(0, Number(opponentScore)||0),
-      lines: Math.max(0, Number(lines)||0)
+      score: Math.max(0, Number(score) || 0),
+      opponent_score: Math.max(0, Number(opponentScore) || 0),
+      lines: Math.max(0, Number(lines) || 0)
     });
-    await window.supabase.from("tetris_rooms").update({status:"finished",updated_at:new Date().toISOString()}).eq("code",state.roomCode);
+
+    if (error) {
+      state.resultRecorded = false;
+      throw error;
+    }
+
+    await window.supabase.from("tetris_rooms").update({
+      status: "finished",
+      updated_at: new Date().toISOString()
+    }).eq("code", state.roomCode);
+
+    state.finished = true;
   }
 
   function leave() {
     stopStateLoop();
     if (state.poll) clearInterval(state.poll);
     state.poll = null;
-    if (state.channel && window.supabase) window.supabase.removeChannel(state.channel);
+    if (state.channel && window.supabase) window.supabase.removeChannel(state.channel).catch(() => {});
     state.channel = null;
     state.roomCode = null;
     state.side = null;
     state.started = false;
     state.finished = false;
+    state.resultRecorded = false;
+    state.connected = false;
   }
 
   window.online1v1 = {
-    openLobby, closeLobby, createRoom, joinRoom, startStateLoop, stopStateLoop,
-    sendAttack, sendGameover, recordResult, leave,
-    getState: () => ({...state})
+    openLobby,
+    closeLobby,
+    createRoom,
+    joinRoom,
+    startStateLoop,
+    stopStateLoop,
+    sendAttack,
+    sendGameover,
+    recordResult,
+    leave,
+    getState: () => ({ ...state })
   };
 })();
