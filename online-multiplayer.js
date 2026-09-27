@@ -195,7 +195,7 @@
 
   function startStateLoop() {
     if (state.stateTimer) clearInterval(state.stateTimer);
-    state.stateTimer = setInterval(() => {
+    state.stateTimer = setInterval(async () => {
       if (window.gameMode !== "online" || !window.player || !state.channel) return;
       const p = window.player;
       if (!p.alive && !state.finished) {
