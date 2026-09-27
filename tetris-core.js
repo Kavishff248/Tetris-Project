@@ -1478,6 +1478,9 @@ function handleMainMenuSelection() {
     gameState = "controls";
   } else if (menuSelection === 4) {
     gameState = "options";
+  } else if (menuSelection === 5) {
+    gameState = "onlineLobby";
+    if (window.online1v1) window.online1v1.openLobby();
   }
 }
 
