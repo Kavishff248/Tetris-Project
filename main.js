@@ -553,10 +553,20 @@ document.addEventListener("keydown", (e) => {
     }
     if (e.key === "Backspace") {
       tempName = tempName.slice(0, -1);
+      if (tempName.trim() && window.hasSavedProfile && window.hasSavedProfile(tempName.trim())) {
+        window.setActiveProfileName(tempName.trim());
+        window.loadSettingsForProfile(tempName.trim());
+      }
       return;
     }
-    if (tempName.length < 12 && e.key.length === 1) {
+    if (tempName.length < 24 && e.key.length === 1) {
       tempName += e.key;
+      const typedName = tempName.trim();
+      // If this exact name already has a profile, bring its settings back immediately.
+      if (typedName && window.hasSavedProfile && window.hasSavedProfile(typedName)) {
+        window.setActiveProfileName(typedName);
+        window.loadSettingsForProfile(typedName);
+      }
     }
     return;
   }
