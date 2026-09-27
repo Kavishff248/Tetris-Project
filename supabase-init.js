@@ -5,9 +5,20 @@ const SUPABASE_KEY = "sb_publishable_kSb7Sv1RWOq8bernfgXYLw_RPwLon9r";
 
 try {
   if (window.supabase && typeof window.supabase.createClient === "function") {
-    window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  } else if (typeof supabase !== "undefined" && typeof supabase.createClient === "function") {
-    window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const createClient = window.supabase.createClient;
+    window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 100
+        }
+      }
+    });
+    console.log("Supabase Tetris client ready");
   } else {
     console.error("Supabase library not found.");
     window.supabase = null;
