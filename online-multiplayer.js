@@ -1,6 +1,6 @@
 (() => {
   const state = {
-    id: localStorage.getItem("tetris_client_id") || crypto.randomUUID(),
+    id: getClientId(),
     roomCode: null,
     side: null,
     opponentName: "Opponent",
@@ -9,9 +9,22 @@
     stateTimer: null,
     started: false,
     finished: false,
+    resultRecorded: false,
     lastAttackAt: 0
   };
-  localStorage.setItem("tetris_client_id", state.id);
+  function getClientId() {
+    try {
+      const saved = localStorage.getItem("tetris_client_id");
+      if (saved) return saved;
+      const id = (window.crypto && typeof crypto.randomUUID === "function")
+        ? crypto.randomUUID()
+        : "guest-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem("tetris_client_id", id);
+      return id;
+    } catch (_) {
+      return "guest-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+  }
 
   function name() {
     return (window.getActiveProfileName && window.getActiveProfileName()) || "Player";
@@ -81,6 +94,7 @@
     if (el) el.style.display = "none";
     if (state.poll) clearInterval(state.poll);
     state.poll = null;
+    if (!state.started && window.setGameState) window.setGameState("menu");
   }
 
   async function subscribe(codeValue) {
@@ -106,8 +120,27 @@
       .subscribe((channelStatus) => {
         if (channelStatus === "SUBSCRIBED") {
           status("Connected to room " + codeValue);
+          if (state._subscribedResolve) {
+            state._subscribedResolve();
+            state._subscribedResolve = null;
+          }
+        } else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(channelStatus) && state._subscribedReject) {
+          state._subscribedReject(new Error("Realtime connection failed: " + channelStatus));
+          state._subscribedReject = null;
+          state._subscribedResolve = null;
         }
       });
+    await new Promise((resolve, reject) => {
+      state._subscribedResolve = resolve;
+      state._subscribedReject = reject;
+      setTimeout(() => {
+        if (state._subscribedResolve === resolve) {
+          state._subscribedResolve = null;
+          state._subscribedReject = null;
+          reject(new Error("Realtime connection timed out. Check your connection and try again."));
+        }
+      }, 12000);
+    });
   }
 
   async function createRoom() {
@@ -152,22 +185,30 @@
       const { data, error } = await window.supabase.from("tetris_rooms").select("id,code,host_id,host_name,guest_id,status").eq("code", roomCode).maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Room not found.");
-      if (data.guest_id && data.guest_id !== state.id) throw new Error("Room is already full.");
-      if (data.status === "finished") throw new Error("Room has ended.");
+      if (data.host_id === state.id) throw new Error("You cannot join your own room.");
+      if (data.status !== "waiting" || data.guest_id) throw new Error("Room is already full or has started.");
       state.roomCode = roomCode;
       state.side = "guest";
       state.started = false;
-      const { error: joinError } = await window.supabase.from("tetris_rooms").update({
-        guest_id: state.id,
-        guest_name: name(),
-        status: "ready",
-        updated_at: new Date().toISOString()
-      }).eq("code", roomCode);
+      state.finished = false;
+      state.resultRecorded = false;
+      const { data: claimed, error: joinError } = await window.supabase.from("tetris_rooms")
+        .update({
+          guest_id: state.id,
+          guest_name: name(),
+          status: "ready",
+          updated_at: new Date().toISOString()
+        })
+        .eq("code", roomCode)
+        .eq("status", "waiting")
+        .is("guest_id", null)
+        .select("code")
+        .maybeSingle();
       if (joinError) throw joinError;
+      if (!claimed) throw new Error("Someone else just joined this room. Try another code.");
       await subscribe(roomCode);
       await state.channel.send({ type:"broadcast", event:"ready", payload:{from:state.id,name:name()} });
-      status("Joined. Waiting for the host...");
-      startRoom(data.host_name || "Host");
+      status("Joined. Waiting for the host to start...");
     } catch (err) {
       console.error(err);
       status(err.message || "Could not join room.");
@@ -239,9 +280,9 @@
   }
 
   async function recordResult(result, score, opponentScore, lines) {
-    if (!window.supabase || !state.roomCode || state.finished) return;
-    state.finished = true;
-    await window.supabase.from("tetris_matches").insert({
+    if (!window.supabase || !state.roomCode || state.resultRecorded) return;
+    state.resultRecorded = true;
+    const { error: matchError } = await window.supabase.from("tetris_matches").insert({
       room_code: state.roomCode,
       player_name: name(),
       opponent_name: state.opponentName || "Opponent",
@@ -250,6 +291,11 @@
       opponent_score: Math.max(0, Number(opponentScore)||0),
       lines: Math.max(0, Number(lines)||0)
     });
+    if (matchError) {
+      state.resultRecorded = false;
+      console.error("Match result insert failed:", matchError);
+      return;
+    }
     await window.supabase.from("tetris_rooms").update({status:"finished",updated_at:new Date().toISOString()}).eq("code",state.roomCode);
   }
 
@@ -263,6 +309,7 @@
     state.side = null;
     state.started = false;
     state.finished = false;
+    state.resultRecorded = false;
   }
 
   window.online1v1 = {

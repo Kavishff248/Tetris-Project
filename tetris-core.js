@@ -1204,6 +1204,8 @@ function beginHorizontalInput(pState, dir, switchedDirection = false) {
 }
 
 
+window.setGameState = value => { gameState = String(value || "menu"); };
+window.getGameState = () => gameState;
 window.canvas = canvas;
 window.ctx = ctx;
 window.COLS = COLS;
@@ -1511,12 +1513,18 @@ function updatePlayer(pState, now) {
   const currentSdf = getCurrentSdf();
 
   if (pState.softDropping && currentSdf === Infinity) {
+    // Infinite SDF moves the piece to the floor; it must not hard-drop and lock.
+    // Preserve the normal lock delay so the player can still slide or rotate.
     const dy = hardDropDistance(pState);
     if (dy > 0) {
       if (gameMode === "solo" && pState === solo) pushUndoEveryAction();
       pState.pieceY += dy;
+      pState.lastDropTime = now;
+      pState.lastLockTime = 0;
+    } else {
+      if (!pState.lastLockTime) pState.lastLockTime = now;
+      if (now - pState.lastLockTime >= LOCK_DELAY) lockPiece(pState);
     }
-    lockPiece(pState);
   } else if (now - pState.lastDropTime >= (pState.softDropping ? softDropDelay : fallDelay)) {
     if (canPlace(pState, pState.pieceX, pState.pieceY + 1, pState.rotation)) {
       if (gameMode === "solo" && pState === solo) pushUndoEveryAction();
