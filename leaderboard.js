@@ -66,32 +66,27 @@ window.submitScore = async function(name, score, country, options={}) {
 };
 
 window.submitVsResult = async function(name,didWin,country="US",opponentName="BOT",pointsFor=0,pointsAgainst=0,options={}) {
-  const playerName=String(name||"").trim().slice(0,24);
-  if(!playerName)return;
-  const entry={name:playerName,didWin:!!didWin,country,opponentName,pointsFor:Number(pointsFor)||0,pointsAgainst:Number(pointsAgainst)||0,timestamp:Date.now()};
+  const playerName = String(name || "").trim().slice(0,24);
+  if (!playerName) return false;
+  const entry = {
+    name: playerName, didWin: !!didWin, country: String(country || "US").slice(0,3),
+    opponentName: String(opponentName || "BOT").slice(0,24),
+    pointsFor: Math.max(0, Number(pointsFor) || 0),
+    pointsAgainst: Math.max(0, Number(pointsAgainst) || 0),
+    timestamp: Date.now()
+  };
   try {
-    if(!window.supabase)throw new Error("Supabase unavailable");
-    const {data:existing,error:selectError}=await window.supabase.from(VS_TABLE).select("*").eq("name",playerName).maybeSingle();
-    if(selectError)throw selectError;
-    const matches=(Number(existing?.matches)||0)+1;
-    const wins=(Number(existing?.wins)||0)+(entry.didWin?1:0);
-    const losses=(Number(existing?.losses)||0)+(entry.didWin?0:1);
-    const payload={
-      name:playerName,country:country||"US",
-      rating:Math.max(100,(Number(existing?.rating)||1000)+(entry.didWin?24:-24)),
-      matches,wins,losses,draws:Number(existing?.draws)||0,
-      win_rate:Number(((wins/matches)*100).toFixed(2)),
-      points_for:(Number(existing?.points_for)||0)+entry.pointsFor,
-      points_against:(Number(existing?.points_against)||0)+entry.pointsAgainst,
-      last_result:entry.didWin?"W":"L",last_opponent:entry.opponentName,
-      last_match_at:new Date(entry.timestamp).toISOString()
-    };
-    const result=existing?.id
-      ? await window.supabase.from(VS_TABLE).update(payload).eq("id",existing.id)
-      : await window.supabase.from(VS_TABLE).insert([payload]);
-    if(result.error)throw result.error;
-  } catch(err) {
-    console.error("VS result save failed:",err);
-    if(!options.skipQueueOnFail)window.queueLocalVsResult(entry);
+    if (!window.supabase) throw new Error("Supabase unavailable");
+    const { error } = await window.supabase.rpc("record_tetris_vs_result", {
+      p_name: entry.name, p_country: entry.country, p_did_win: entry.didWin,
+      p_points_for: entry.pointsFor, p_points_against: entry.pointsAgainst,
+      p_opponent_name: entry.opponentName
+    });
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error("VS result save failed:", err);
+    if (!options.skipQueueOnFail) window.queueLocalVsResult(entry);
+    return false;
   }
 };
