@@ -9,6 +9,7 @@
     stateTimer: null,
     started: false,
     finished: false,
+    resultRecorded: false,
     lastAttackAt: 0
   };
   localStorage.setItem("tetris_client_id", state.id);
@@ -106,8 +107,27 @@
       .subscribe((channelStatus) => {
         if (channelStatus === "SUBSCRIBED") {
           status("Connected to room " + codeValue);
+          if (state._subscribedResolve) {
+            state._subscribedResolve();
+            state._subscribedResolve = null;
+          }
+        } else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(channelStatus) && state._subscribedReject) {
+          state._subscribedReject(new Error("Realtime connection failed: " + channelStatus));
+          state._subscribedReject = null;
+          state._subscribedResolve = null;
         }
       });
+    await new Promise((resolve, reject) => {
+      state._subscribedResolve = resolve;
+      state._subscribedReject = reject;
+      setTimeout(() => {
+        if (state._subscribedResolve === resolve) {
+          state._subscribedResolve = null;
+          state._subscribedReject = null;
+          reject(new Error("Realtime connection timed out. Check your connection and try again."));
+        }
+      }, 12000);
+    });
   }
 
   async function createRoom() {
@@ -166,8 +186,7 @@
       if (joinError) throw joinError;
       await subscribe(roomCode);
       await state.channel.send({ type:"broadcast", event:"ready", payload:{from:state.id,name:name()} });
-      status("Joined. Waiting for the host...");
-      startRoom(data.host_name || "Host");
+      status("Joined. Waiting for the host to start...");
     } catch (err) {
       console.error(err);
       status(err.message || "Could not join room.");
@@ -239,9 +258,9 @@
   }
 
   async function recordResult(result, score, opponentScore, lines) {
-    if (!window.supabase || !state.roomCode || state.finished) return;
-    state.finished = true;
-    await window.supabase.from("tetris_matches").insert({
+    if (!window.supabase || !state.roomCode || state.resultRecorded) return;
+    state.resultRecorded = true;
+    const { error: matchError } = await window.supabase.from("tetris_matches").insert({
       room_code: state.roomCode,
       player_name: name(),
       opponent_name: state.opponentName || "Opponent",
@@ -250,6 +269,11 @@
       opponent_score: Math.max(0, Number(opponentScore)||0),
       lines: Math.max(0, Number(lines)||0)
     });
+    if (matchError) {
+      state.resultRecorded = false;
+      console.error("Match result insert failed:", matchError);
+      return;
+    }
     await window.supabase.from("tetris_rooms").update({status:"finished",updated_at:new Date().toISOString()}).eq("code",state.roomCode);
   }
 
@@ -263,6 +287,7 @@
     state.side = null;
     state.started = false;
     state.finished = false;
+    state.resultRecorded = false;
   }
 
   window.online1v1 = {
