@@ -1204,6 +1204,8 @@ function beginHorizontalInput(pState, dir, switchedDirection = false) {
 }
 
 
+window.setGameState = value => { gameState = String(value || "menu"); };
+window.getGameState = () => gameState;
 window.canvas = canvas;
 window.ctx = ctx;
 window.COLS = COLS;
