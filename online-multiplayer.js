@@ -1,6 +1,6 @@
 (() => {
   const state = {
-    id: localStorage.getItem("tetris_client_id") || crypto.randomUUID(),
+    id: getClientId(),
     roomCode: null,
     side: null,
     opponentName: "Opponent",
@@ -12,7 +12,19 @@
     resultRecorded: false,
     lastAttackAt: 0
   };
-  localStorage.setItem("tetris_client_id", state.id);
+  function getClientId() {
+    try {
+      const saved = localStorage.getItem("tetris_client_id");
+      if (saved) return saved;
+      const id = (window.crypto && typeof crypto.randomUUID === "function")
+        ? crypto.randomUUID()
+        : "guest-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem("tetris_client_id", id);
+      return id;
+    } catch (_) {
+      return "guest-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+  }
 
   function name() {
     return (window.getActiveProfileName && window.getActiveProfileName()) || "Player";
@@ -82,6 +94,7 @@
     if (el) el.style.display = "none";
     if (state.poll) clearInterval(state.poll);
     state.poll = null;
+    if (!state.started && window.setGameState) window.setGameState("menu");
   }
 
   async function subscribe(codeValue) {
@@ -172,18 +185,27 @@
       const { data, error } = await window.supabase.from("tetris_rooms").select("id,code,host_id,host_name,guest_id,status").eq("code", roomCode).maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Room not found.");
-      if (data.guest_id && data.guest_id !== state.id) throw new Error("Room is already full.");
-      if (data.status === "finished") throw new Error("Room has ended.");
+      if (data.host_id === state.id) throw new Error("You cannot join your own room.");
+      if (data.status !== "waiting" || data.guest_id) throw new Error("Room is already full or has started.");
       state.roomCode = roomCode;
       state.side = "guest";
       state.started = false;
-      const { error: joinError } = await window.supabase.from("tetris_rooms").update({
-        guest_id: state.id,
-        guest_name: name(),
-        status: "ready",
-        updated_at: new Date().toISOString()
-      }).eq("code", roomCode);
+      state.finished = false;
+      state.resultRecorded = false;
+      const { data: claimed, error: joinError } = await window.supabase.from("tetris_rooms")
+        .update({
+          guest_id: state.id,
+          guest_name: name(),
+          status: "ready",
+          updated_at: new Date().toISOString()
+        })
+        .eq("code", roomCode)
+        .eq("status", "waiting")
+        .is("guest_id", null)
+        .select("code")
+        .maybeSingle();
       if (joinError) throw joinError;
+      if (!claimed) throw new Error("Someone else just joined this room. Try another code.");
       await subscribe(roomCode);
       await state.channel.send({ type:"broadcast", event:"ready", payload:{from:state.id,name:name()} });
       status("Joined. Waiting for the host to start...");
